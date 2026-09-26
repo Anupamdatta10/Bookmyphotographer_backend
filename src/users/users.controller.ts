@@ -11,8 +11,11 @@ import {
   ValidationPipe,
   HttpCode,
   HttpStatus,
+  UseInterceptors,
+  UploadedFile,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiQuery } from '@nestjs/swagger';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiQuery, ApiConsumes, ApiBody } from '@nestjs/swagger';
 import { UsersService } from './users.service';
 import { CreateUserDto, UpdateUserDto, UserQueryDto, LoginDto } from './dto/user.dto';
 import { User, UserRole } from '../schemas/user.schema';
@@ -23,13 +26,36 @@ export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
   @Post()
-  @ApiOperation({ summary: 'Create a new user' })
+  @ApiOperation({ summary: 'Create a new user with optional profile image' })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        name: { type: 'string', example: 'John Doe' },
+        email: { type: 'string', example: 'john.doe@example.com' },
+        password: { type: 'string', example: 'securePassword123' },
+        type: { type: 'string', enum: ['ADMIN', 'PHOTOGRAPHER', 'PARTNER', 'SUPERADMIN'], example: 'PARTNER' },
+        phone: { type: 'string', example: '+1234567890' },
+        city: { type: 'string', example: 'New York' },
+        country: { type: 'string', example: 'USA' },
+        address1: { type: 'string', example: '123 Main St' },
+        address2: { type: 'string', example: 'Apt 4B' },
+        file: { type: 'string', format: 'binary' },
+      },
+      required: ['name', 'email', 'password'],
+    },
+  })
   @ApiResponse({ status: 201, description: 'User created successfully', type: User })
   @ApiResponse({ status: 400, description: 'Bad request - validation error' })
   @ApiResponse({ status: 409, description: 'Conflict - email already exists' })
+  @UseInterceptors(FileInterceptor('file'))
   @UsePipes(new ValidationPipe({ transform: true }))
-  async create(@Body() createUserDto: CreateUserDto): Promise<User> {
-    return this.usersService.create(createUserDto);
+  async create(
+    @Body() createUserDto: CreateUserDto,
+    @UploadedFile() file?: Express.Multer.File,
+  ): Promise<User> {
+    return this.usersService.create(createUserDto, file);
   }
 
   @Post('login')
@@ -67,15 +93,39 @@ export class UsersController {
   }
 
   @Patch(':id')
-  @ApiOperation({ summary: 'Update a user' })
+  @ApiOperation({ summary: 'Update a user with optional profile image' })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        name: { type: 'string', example: 'John Doe' },
+        email: { type: 'string', example: 'john.doe@example.com' },
+        password: { type: 'string', example: 'securePassword123' },
+        type: { type: 'string', enum: ['ADMIN', 'PHOTOGRAPHER', 'PARTNER', 'SUPERADMIN'], example: 'PARTNER' },
+        phone: { type: 'string', example: '+1234567890' },
+        city: { type: 'string', example: 'New York' },
+        country: { type: 'string', example: 'USA' },
+        address1: { type: 'string', example: '123 Main St' },
+        address2: { type: 'string', example: 'Apt 4B' },
+        isActive: { type: 'boolean', example: true },
+        file: { type: 'string', format: 'binary' },
+      },
+    },
+  })
   @ApiParam({ name: 'id', description: 'User ID' })
   @ApiResponse({ status: 200, description: 'User updated successfully', type: User })
   @ApiResponse({ status: 404, description: 'User not found' })
   @ApiResponse({ status: 400, description: 'Invalid ID format' })
   @ApiResponse({ status: 409, description: 'Conflict - email already exists' })
+  @UseInterceptors(FileInterceptor('file'))
   @UsePipes(new ValidationPipe({ transform: true }))
-  async update(@Param('id') id: string, @Body() updateUserDto: UpdateUserDto): Promise<User> {
-    return this.usersService.update(id, updateUserDto);
+  async update(
+    @Param('id') id: string,
+    @Body() updateUserDto: UpdateUserDto,
+    @UploadedFile() file?: Express.Multer.File,
+  ): Promise<User> {
+    return this.usersService.update(id, updateUserDto, file);
   }
 
   @Delete(':id')

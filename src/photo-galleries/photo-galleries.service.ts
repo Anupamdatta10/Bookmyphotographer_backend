@@ -3,14 +3,16 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types, FilterQuery } from 'mongoose';
 import { PhotoGallery, PhotoGalleryDocument } from '../schemas/photo-gallery.schema';
 import { CreatePhotoGalleryDto, UpdatePhotoGalleryDto, PhotoGalleryQueryDto } from './dto/photo-gallery.dto';
+import { FileUploadService } from '@/common/services/file-upload.service';
 
 @Injectable()
 export class PhotoGalleriesService {
   constructor(
     @InjectModel(PhotoGallery.name) private photoGalleryModel: Model<PhotoGalleryDocument>,
+    private fileUploadService: FileUploadService,
   ) {}
 
-  async create(createDto: CreatePhotoGalleryDto): Promise<PhotoGalleryDocument> {
+  async create(createDto: CreatePhotoGalleryDto, file?: Express.Multer.File): Promise<PhotoGalleryDocument> {
     // If this is set as profile image, unset other profile images for this user
     if (createDto.isProfileImage) {
       await this.photoGalleryModel.updateMany(
@@ -19,9 +21,16 @@ export class PhotoGalleriesService {
       ).exec();
     }
 
+    // Upload file if provided
+    let link = '';
+    if (file) {
+      link = await this.fileUploadService.uploadFile(file, 'galleries');
+    }
+
     const createdPhoto = new this.photoGalleryModel({
       ...createDto,
       userId: new Types.ObjectId(createDto.userId),
+      link,
     });
     return createdPhoto.save();
   }
@@ -113,7 +122,7 @@ export class PhotoGalleriesService {
       .exec();
   }
 
-  async update(id: string, updateDto: UpdatePhotoGalleryDto): Promise<PhotoGalleryDocument> {
+  async update(id: string, updateDto: UpdatePhotoGalleryDto, file?: Express.Multer.File): Promise<PhotoGalleryDocument> {
     if (!Types.ObjectId.isValid(id)) {
       throw new BadRequestException('Invalid photo gallery ID');
     }
@@ -137,6 +146,16 @@ export class PhotoGalleriesService {
       }
     }
 
+    // Upload new file if provided
+    if (file) {
+      // Delete old file if exists
+      const oldPhoto = await this.photoGalleryModel.findById(id).exec();
+      if (oldPhoto?.link) {
+        await this.fileUploadService.deleteFile(oldPhoto.link);
+      }
+      updateData.link = await this.fileUploadService.uploadFile(file, 'galleries');
+    }
+
     const updatedPhoto = await this.photoGalleryModel
       .findOneAndUpdate({ _id: id, deletedAt: { $exists: false } }, updateData, { new: true, runValidators: true })
       .populate('userId', 'name email')
@@ -152,6 +171,12 @@ export class PhotoGalleriesService {
   async remove(id: string): Promise<void> {
     if (!Types.ObjectId.isValid(id)) {
       throw new BadRequestException('Invalid photo gallery ID');
+    }
+
+    // Delete associated file
+    const photo = await this.photoGalleryModel.findById(id).exec();
+    if (photo?.link) {
+      await this.fileUploadService.deleteFile(photo.link);
     }
 
     // Soft delete

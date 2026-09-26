@@ -1,4 +1,4 @@
-import { IsMongoId, IsUrl, IsOptional, IsString, IsBoolean, IsNumber, Min, MaxLength } from 'class-validator';
+import { IsMongoId, IsOptional, IsString, IsBoolean, IsNumber, Min, MaxLength } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 
@@ -6,10 +6,6 @@ export class CreatePhotoGalleryDto {
   @ApiProperty({ example: '507f1f77bcf86cd799439011' })
   @IsMongoId()
   userId: string;
-
-  @ApiProperty({ example: 'https://example.com/photo.jpg' })
-  @IsUrl()
-  link: string;
 
   @ApiPropertyOptional({ example: 'Wedding photo' })
   @IsOptional()
@@ -35,11 +31,6 @@ export class UpdatePhotoGalleryDto {
   @IsOptional()
   @IsMongoId()
   userId?: string;
-
-  @ApiPropertyOptional({ example: 'https://example.com/photo.jpg' })
-  @IsOptional()
-  @IsUrl()
-  link?: string;
 
   @ApiPropertyOptional({ example: 'Wedding photo' })
   @IsOptional()

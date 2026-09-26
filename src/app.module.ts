@@ -10,6 +10,7 @@ import { ReviewsModule } from './reviews/reviews.module';
 import { AvailabilitiesModule } from './availabilities/availabilities.module';
 import { PhotoGalleriesModule } from './photo-galleries/photo-galleries.module';
 import { SocialMediaLinksModule } from './social-media-links/social-media-links.module';
+import { CommonModule } from './common/common.module';
 
 @Module({
   imports: [
@@ -42,6 +43,7 @@ import { SocialMediaLinksModule } from './social-media-links/social-media-links.
     AvailabilitiesModule,
     PhotoGalleriesModule,
     SocialMediaLinksModule,
+    CommonModule,
   ],
 })
 export class AppModule {}

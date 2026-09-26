@@ -11,8 +11,12 @@ import {
   ValidationPipe,
   HttpCode,
   HttpStatus,
+  UseInterceptors,
+  UploadedFile,
+  UploadedFiles,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiQuery } from '@nestjs/swagger';
+import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
+import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiQuery, ApiConsumes, ApiBody } from '@nestjs/swagger';
 import { PhotoGalleriesService } from './photo-galleries.service';
 import { CreatePhotoGalleryDto, UpdatePhotoGalleryDto, PhotoGalleryQueryDto } from './dto/photo-gallery.dto';
 import { PhotoGallery } from '../schemas/photo-gallery.schema';
@@ -23,12 +27,30 @@ export class PhotoGalleriesController {
   constructor(private readonly photoGalleriesService: PhotoGalleriesService) {}
 
   @Post()
-  @ApiOperation({ summary: 'Create a new photo gallery entry' })
+  @ApiOperation({ summary: 'Create a new photo gallery entry with file upload' })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        userId: { type: 'string', example: '507f1f77bcf86cd799439011' },
+        description: { type: 'string', example: 'Wedding photo' },
+        isProfileImage: { type: 'boolean', example: false },
+        sequence: { type: 'number', example: 1 },
+        file: { type: 'string', format: 'binary' },
+      },
+      required: ['userId'],
+    },
+  })
   @ApiResponse({ status: 201, description: 'Photo gallery created successfully', type: PhotoGallery })
   @ApiResponse({ status: 400, description: 'Bad request - validation error' })
+  @UseInterceptors(FileInterceptor('file'))
   @UsePipes(new ValidationPipe({ transform: true }))
-  async create(@Body() createDto: CreatePhotoGalleryDto): Promise<PhotoGallery> {
-    return this.photoGalleriesService.create(createDto);
+  async create(
+    @Body() createDto: CreatePhotoGalleryDto,
+    @UploadedFile() file?: Express.Multer.File,
+  ): Promise<PhotoGallery> {
+    return this.photoGalleriesService.create(createDto, file);
   }
 
   @Get()
@@ -70,14 +92,32 @@ export class PhotoGalleriesController {
   }
 
   @Patch(':id')
-  @ApiOperation({ summary: 'Update a photo gallery' })
+  @ApiOperation({ summary: 'Update a photo gallery with optional file upload' })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        userId: { type: 'string', example: '507f1f77bcf86cd799439011' },
+        description: { type: 'string', example: 'Wedding photo' },
+        isProfileImage: { type: 'boolean', example: false },
+        sequence: { type: 'number', example: 1 },
+        file: { type: 'string', format: 'binary' },
+      },
+    },
+  })
   @ApiParam({ name: 'id', description: 'Photo Gallery ID' })
   @ApiResponse({ status: 200, description: 'Photo gallery updated successfully', type: PhotoGallery })
   @ApiResponse({ status: 404, description: 'Photo gallery not found' })
   @ApiResponse({ status: 400, description: 'Invalid ID format' })
+  @UseInterceptors(FileInterceptor('file'))
   @UsePipes(new ValidationPipe({ transform: true }))
-  async update(@Param('id') id: string, @Body() updateDto: UpdatePhotoGalleryDto): Promise<PhotoGallery> {
-    return this.photoGalleriesService.update(id, updateDto);
+  async update(
+    @Param('id') id: string,
+    @Body() updateDto: UpdatePhotoGalleryDto,
+    @UploadedFile() file?: Express.Multer.File,
+  ): Promise<PhotoGallery> {
+    return this.photoGalleriesService.update(id, updateDto, file);
   }
 
   @Delete(':id')

@@ -1,10 +1,17 @@
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
+import { join } from 'path';
+import { NestExpressApplication } from '@nestjs/platform-express';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+
+  // Serve static files from public folder
+  app.useStaticAssets(join(__dirname, '..', 'public'), {
+    prefix: '/public',
+  });
 
   // Global prefix for all routes
   app.setGlobalPrefix('api');
@@ -36,6 +43,7 @@ async function bootstrap() {
     .addTag('photographers', 'Photographer management')
     .addTag('bookings', 'Booking management')
     .addTag('users', 'User management')
+    .addTag('photo-galleries', 'Photo gallery management')
     .build();
 
   const document = SwaggerModule.createDocument(app, config);
@@ -45,6 +53,7 @@ async function bootstrap() {
   await app.listen(port);
   console.log(`🚀 Application is running on: http://localhost:${port}`);
   console.log(`📚 Swagger docs available at: http://localhost:${port}/api/docs`);
+  console.log(`🖼️  Static files served at: http://localhost:${port}/public`);
 }
 
 bootstrap();
