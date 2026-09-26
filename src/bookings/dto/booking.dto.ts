@@ -1,7 +1,7 @@
 import { IsString, IsDate, IsEnum, IsOptional, IsNumber, Min, Max, IsMongoId } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { BookingStatus } from '../schemas/booking.schema';
+import { BookingStatus } from '../../schemas/booking.schema';
 
 export class CreateBookingDto {
   @ApiProperty({ example: '507f1f77bcf86cd799439011' })

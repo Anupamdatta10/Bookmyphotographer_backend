@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types, FilterQuery } from 'mongoose';
-import { Photographer, PhotographerDocument } from './schemas/photographer.schema';
+import { Photographer, PhotographerDocument } from '../schemas/photographer.schema';
 import { CreatePhotographerDto, UpdatePhotographerDto, PhotographerQueryDto } from './dto/photographer.dto';
 
 @Injectable()
@@ -12,7 +12,10 @@ export class PhotographersService {
 
   async create(createPhotographerDto: CreatePhotographerDto): Promise<PhotographerDocument> {
     // Check if email already exists
-    const existingPhotographer = await this.photographerModel.findOne({ email: createPhotographerDto.email });
+    const existingPhotographer = await this.photographerModel.findOne({ 
+      email: createPhotographerDto.email,
+      deletedAt: { $exists: false }
+    });
     if (existingPhotographer) {
       throw new BadRequestException('Photographer with this email already exists');
     }
@@ -65,6 +68,9 @@ export class PhotographersService {
       ];
     }
 
+    // Exclude soft deleted
+    filter.deletedAt = { $exists: false };
+
     // Build sort object
     const sort: Record<string, 1 | -1> = {};
     sort[sortBy] = sortOrder === 'asc' ? 1 : -1;
@@ -93,7 +99,7 @@ export class PhotographersService {
       throw new BadRequestException('Invalid photographer ID');
     }
 
-    const photographer = await this.photographerModel.findById(id).exec();
+    const photographer = await this.photographerModel.findOne({ _id: id, deletedAt: { $exists: false } }).exec();
     if (!photographer) {
       throw new NotFoundException(`Photographer with ID ${id} not found`);
     }
@@ -101,7 +107,7 @@ export class PhotographersService {
   }
 
   async findByEmail(email: string): Promise<PhotographerDocument | null> {
-    return this.photographerModel.findOne({ email }).exec();
+    return this.photographerModel.findOne({ email, deletedAt: { $exists: false } }).exec();
   }
 
   async update(id: string, updatePhotographerDto: UpdatePhotographerDto): Promise<PhotographerDocument> {
@@ -114,6 +120,7 @@ export class PhotographersService {
       const existingPhotographer = await this.photographerModel.findOne({
         email: updatePhotographerDto.email,
         _id: { $ne: id },
+        deletedAt: { $exists: false },
       });
       if (existingPhotographer) {
         throw new BadRequestException('Photographer with this email already exists');
@@ -121,7 +128,7 @@ export class PhotographersService {
     }
 
     const updatedPhotographer = await this.photographerModel
-      .findByIdAndUpdate(id, updatePhotographerDto, { new: true, runValidators: true })
+      .findOneAndUpdate({ _id: id, deletedAt: { $exists: false } }, updatePhotographerDto, { new: true, runValidators: true })
       .exec();
 
     if (!updatedPhotographer) {
@@ -136,14 +143,20 @@ export class PhotographersService {
       throw new BadRequestException('Invalid photographer ID');
     }
 
-    const result = await this.photographerModel.findByIdAndDelete(id).exec();
+    // Soft delete
+    const result = await this.photographerModel.findOneAndUpdate(
+      { _id: id, deletedAt: { $exists: false } },
+      { deletedAt: new Date() },
+      { new: true }
+    ).exec();
+
     if (!result) {
       throw new NotFoundException(`Photographer with ID ${id} not found`);
     }
   }
 
   async getSpecialties(): Promise<string[]> {
-    const photographers = await this.photographerModel.find({}, 'specialties').exec();
+    const photographers = await this.photographerModel.find({ deletedAt: { $exists: false } }, 'specialties').exec();
     const specialties = new Set<string>();
     photographers.forEach((p) => {
       p.specialties.forEach((s) => specialties.add(s));
@@ -153,12 +166,14 @@ export class PhotographersService {
 
   async getStats(): Promise<{ total: number; available: number; averageRating: number; averagePrice: number }> {
     const [total, available, ratingStats, priceStats] = await Promise.all([
-      this.photographerModel.countDocuments().exec(),
-      this.photographerModel.countDocuments({ isAvailable: true }).exec(),
+      this.photographerModel.countDocuments({ deletedAt: { $exists: false } }).exec(),
+      this.photographerModel.countDocuments({ isAvailable: true, deletedAt: { $exists: false } }).exec(),
       this.photographerModel.aggregate([
+        { $match: { deletedAt: { $exists: false } } },
         { $group: { _id: null, avgRating: { $avg: '$rating' } } },
       ]).exec(),
       this.photographerModel.aggregate([
+        { $match: { deletedAt: { $exists: false } } },
         { $group: { _id: null, avgPrice: { $avg: '$pricePerHour' } } },
       ]).exec(),
     ]);

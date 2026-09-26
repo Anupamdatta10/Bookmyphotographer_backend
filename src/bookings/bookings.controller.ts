@@ -15,7 +15,7 @@ import {
 import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiQuery } from '@nestjs/swagger';
 import { BookingsService } from './bookings.service';
 import { CreateBookingDto, UpdateBookingDto, BookingQueryDto } from './dto/booking.dto';
-import { Booking, BookingStatus } from './schemas/booking.schema';
+import { Booking, BookingStatus } from '../schemas/booking.schema';
 
 @ApiTags('bookings')
 @Controller('bookings')

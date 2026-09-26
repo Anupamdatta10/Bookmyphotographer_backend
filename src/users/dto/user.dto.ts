@@ -1,6 +1,6 @@
 import { IsString, IsEmail, IsOptional, IsEnum, MinLength, MaxLength, IsUrl, IsBoolean } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { UserRole } from '../schemas/user.schema';
+import { UserRole } from '../../schemas/user.schema';
 
 export class CreateUserDto {
   @ApiProperty({ example: 'John Doe' })
@@ -19,20 +19,35 @@ export class CreateUserDto {
   @MaxLength(50)
   password: string;
 
-  @ApiPropertyOptional({ enum: UserRole, example: UserRole.CLIENT })
+  @ApiPropertyOptional({ enum: UserRole, example: UserRole.PARTNER })
   @IsOptional()
   @IsEnum(UserRole)
-  role?: UserRole;
+  type?: UserRole;
 
   @ApiPropertyOptional({ example: '+1234567890' })
   @IsOptional()
   @IsString()
   phone?: string;
 
-  @ApiPropertyOptional({ example: '123 Main St, City, State' })
+  @ApiPropertyOptional({ example: 'New York' })
   @IsOptional()
   @IsString()
-  address?: string;
+  city?: string;
+
+  @ApiPropertyOptional({ example: 'USA' })
+  @IsOptional()
+  @IsString()
+  country?: string;
+
+  @ApiPropertyOptional({ example: '123 Main St' })
+  @IsOptional()
+  @IsString()
+  address1?: string;
+
+  @ApiPropertyOptional({ example: 'Apt 4B' })
+  @IsOptional()
+  @IsString()
+  address2?: string;
 
   @ApiPropertyOptional({ example: 'https://profile.example.com/image.jpg' })
   @IsOptional()
@@ -60,20 +75,35 @@ export class UpdateUserDto {
   @MaxLength(50)
   password?: string;
 
-  @ApiPropertyOptional({ enum: UserRole, example: UserRole.CLIENT })
+  @ApiPropertyOptional({ enum: UserRole, example: UserRole.PARTNER })
   @IsOptional()
   @IsEnum(UserRole)
-  role?: UserRole;
+  type?: UserRole;
 
   @ApiPropertyOptional({ example: '+1234567890' })
   @IsOptional()
   @IsString()
   phone?: string;
 
-  @ApiPropertyOptional({ example: '123 Main St, City, State' })
+  @ApiPropertyOptional({ example: 'New York' })
   @IsOptional()
   @IsString()
-  address?: string;
+  city?: string;
+
+  @ApiPropertyOptional({ example: 'USA' })
+  @IsOptional()
+  @IsString()
+  country?: string;
+
+  @ApiPropertyOptional({ example: '123 Main St' })
+  @IsOptional()
+  @IsString()
+  address1?: string;
+
+  @ApiPropertyOptional({ example: 'Apt 4B' })
+  @IsOptional()
+  @IsString()
+  address2?: string;
 
   @ApiPropertyOptional({ example: 'https://profile.example.com/image.jpg' })
   @IsOptional()
@@ -97,10 +127,10 @@ export class UserQueryDto {
   @IsString()
   limit?: string = '10';
 
-  @ApiPropertyOptional({ enum: UserRole, example: UserRole.CLIENT })
+  @ApiPropertyOptional({ enum: UserRole, example: UserRole.PARTNER })
   @IsOptional()
   @IsEnum(UserRole)
-  role?: UserRole;
+  type?: UserRole;
 
   @ApiPropertyOptional({ example: true })
   @IsOptional()

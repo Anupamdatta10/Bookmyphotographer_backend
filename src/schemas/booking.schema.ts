@@ -11,7 +11,7 @@ export enum BookingStatus {
   CANCELLED = 'cancelled',
 }
 
-@Schema({ timestamps: true })
+@Schema({ timestamps: true, collection: 'bookings' })
 export class Booking {
   @Prop({ type: Types.ObjectId, ref: 'Photographer', required: true })
   photographerId: Types.ObjectId;
@@ -48,6 +48,9 @@ export class Booking {
 
   @Prop({ type: String, default: '' })
   cancellationReason: string;
+
+  @Prop({ type: Date })
+  deletedAt: Date;
 }
 
 export const BookingSchema = SchemaFactory.createForClass(Booking);
@@ -60,3 +63,4 @@ BookingSchema.index({ eventDate: 1 });
 BookingSchema.index({ createdAt: -1 });
 BookingSchema.index({ photographerId: 1, eventDate: 1 });
 BookingSchema.index({ userId: 1, eventDate: 1 });
+BookingSchema.index({ deletedAt: 1 });

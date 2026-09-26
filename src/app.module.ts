@@ -4,6 +4,12 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { PhotographersModule } from './photographers/photographers.module';
 import { BookingsModule } from './bookings/bookings.module';
 import { UsersModule } from './users/users.module';
+import { TagsModule } from './tags/tags.module';
+import { TagUserRelationsModule } from './tag-user-relations/tag-user-relations.module';
+import { ReviewsModule } from './reviews/reviews.module';
+import { AvailabilitiesModule } from './availabilities/availabilities.module';
+import { PhotoGalleriesModule } from './photo-galleries/photo-galleries.module';
+import { SocialMediaLinksModule } from './social-media-links/social-media-links.module';
 
 @Module({
   imports: [
@@ -30,6 +36,12 @@ import { UsersModule } from './users/users.module';
     PhotographersModule,
     BookingsModule,
     UsersModule,
+    TagsModule,
+    TagUserRelationsModule,
+    ReviewsModule,
+    AvailabilitiesModule,
+    PhotoGalleriesModule,
+    SocialMediaLinksModule,
   ],
 })
 export class AppModule {}

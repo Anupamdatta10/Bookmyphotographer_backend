@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types, FilterQuery } from 'mongoose';
-import { Booking, BookingDocument, BookingStatus } from './schemas/booking.schema';
+import { Booking, BookingDocument, BookingStatus } from '../schemas/booking.schema';
 import { CreateBookingDto, UpdateBookingDto, BookingQueryDto } from './dto/booking.dto';
 
 @Injectable()
@@ -27,6 +27,7 @@ export class BookingsService {
     const conflictingBooking = await this.bookingModel.findOne({
       photographerId: createBookingDto.photographerId,
       status: { $in: [BookingStatus.PENDING, BookingStatus.CONFIRMED, BookingStatus.IN_PROGRESS] },
+      deletedAt: { $exists: false },
       $or: [
         { eventDate: { $lt: endDate, $gte: eventDate } },
         {
@@ -93,6 +94,9 @@ export class BookingsService {
       if (endDate) filter.eventDate.$lte = endDate;
     }
 
+    // Exclude soft deleted
+    filter.deletedAt = { $exists: false };
+
     // Build sort object
     const sort: Record<string, 1 | -1> = {};
     sort[sortBy] = sortOrder === 'asc' ? 1 : -1;
@@ -124,7 +128,7 @@ export class BookingsService {
     }
 
     const booking = await this.bookingModel
-      .findById(id)
+      .findOne({ _id: id, deletedAt: { $exists: false } })
       .populate('photographerId', 'name email phone profileImageUrl specialties pricePerHour')
       .populate('userId', 'name email phone')
       .exec();
@@ -173,7 +177,7 @@ export class BookingsService {
 
     // Check for conflicts if eventDate or photographerId is being updated
     if (updateBookingDto.eventDate || updateBookingDto.photographerId) {
-      const booking = await this.bookingModel.findById(id).exec();
+      const booking = await this.bookingModel.findOne({ _id: id, deletedAt: { $exists: false } }).exec();
       if (!booking) {
         throw new NotFoundException(`Booking with ID ${id} not found`);
       }
@@ -187,6 +191,7 @@ export class BookingsService {
         _id: { $ne: id },
         photographerId: new Types.ObjectId(photographerId),
         status: { $in: [BookingStatus.PENDING, BookingStatus.CONFIRMED, BookingStatus.IN_PROGRESS] },
+        deletedAt: { $exists: false },
         $or: [
           { eventDate: { $lt: endDate, $gte: eventDate } },
           {
@@ -206,7 +211,7 @@ export class BookingsService {
     }
 
     const updatedBooking = await this.bookingModel
-      .findByIdAndUpdate(id, updateData, { new: true, runValidators: true })
+      .findOneAndUpdate({ _id: id, deletedAt: { $exists: false } }, updateData, { new: true, runValidators: true })
       .populate('photographerId', 'name email phone profileImageUrl')
       .populate('userId', 'name email phone')
       .exec();
@@ -227,7 +232,13 @@ export class BookingsService {
       throw new BadRequestException('Invalid booking ID');
     }
 
-    const result = await this.bookingModel.findByIdAndDelete(id).exec();
+    // Soft delete
+    const result = await this.bookingModel.findOneAndUpdate(
+      { _id: id, deletedAt: { $exists: false } },
+      { deletedAt: new Date() },
+      { new: true }
+    ).exec();
+
     if (!result) {
       throw new NotFoundException(`Booking with ID ${id} not found`);
     }
@@ -242,7 +253,7 @@ export class BookingsService {
     cancelled: number;
     totalRevenue: number;
   }> {
-    const filter: FilterQuery<BookingDocument> = {};
+    const filter: FilterQuery<BookingDocument> = { deletedAt: { $exists: false } };
     if (photographerId) {
       if (!Types.ObjectId.isValid(photographerId)) {
         throw new BadRequestException('Invalid photographer ID');
@@ -284,6 +295,7 @@ export class BookingsService {
         photographerId: new Types.ObjectId(photographerId),
         eventDate: { $gte: new Date() },
         status: { $in: [BookingStatus.PENDING, BookingStatus.CONFIRMED] },
+        deletedAt: { $exists: false },
       })
       .populate('userId', 'name email phone')
       .sort({ eventDate: 1 })

@@ -3,7 +3,7 @@ import { Document, Types } from 'mongoose';
 
 export type PhotographerDocument = Photographer & Document;
 
-@Schema({ timestamps: true })
+@Schema({ timestamps: true, collection: 'photographers' })
 export class Photographer {
   @Prop({ required: true, trim: true })
   name: string;
@@ -46,6 +46,9 @@ export class Photographer {
 
   @Prop({ type: Types.ObjectId, ref: 'User' })
   userId: Types.ObjectId;
+
+  @Prop({ type: Date })
+  deletedAt: Date;
 }
 
 export const PhotographerSchema = SchemaFactory.createForClass(Photographer);
@@ -57,3 +60,4 @@ PhotographerSchema.index({ isAvailable: 1 });
 PhotographerSchema.index({ rating: -1 });
 PhotographerSchema.index({ pricePerHour: 1 });
 PhotographerSchema.index({ createdAt: -1 });
+PhotographerSchema.index({ deletedAt: 1 });

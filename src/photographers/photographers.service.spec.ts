@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getModelToken } from '@nestjs/mongoose';
 import { PhotographersService } from './photographers.service';
-import { Photographer } from './schemas/photographer.schema';
+import { Photographer } from '../schemas/photographer.schema';
 import { CreatePhotographerDto } from './dto/photographer.dto';
 import { NotFoundException, BadRequestException } from '@nestjs/common';
 
@@ -31,10 +31,24 @@ describe('PhotographersService', () => {
   });
 
   const mockModel = {
-    findOne: jest.fn().mockImplementation((query) => createQueryMock(query.email === 'john.doe@example.com' ? mockPhotographer : null)),
+    findOne: jest.fn().mockImplementation((query) => {
+      if (query.email === 'john.doe@example.com' && query.deletedAt) {
+        return createQueryMock(mockPhotographer);
+      }
+      if (query._id === '507f1f77bcf86cd799439011' && query.deletedAt) {
+        return createQueryMock(mockPhotographer);
+      }
+      return createQueryMock(null);
+    }),
     findById: jest.fn().mockImplementation((id) => createQueryMock(id === '507f1f77bcf86cd799439011' ? mockPhotographer : null)),
     findByIdAndUpdate: jest.fn().mockImplementation((id, update, options) => createQueryMock({ ...mockPhotographer, ...update })),
     findByIdAndDelete: jest.fn().mockImplementation((id) => createQueryMock(id === '507f1f77bcf86cd799439011' ? mockPhotographer : null)),
+    findOneAndUpdate: jest.fn().mockImplementation((query, update, options) => {
+      if (query._id === '507f1f77bcf86cd799439011' && query.deletedAt) {
+        return createQueryMock({ ...mockPhotographer, ...update });
+      }
+      return createQueryMock(null);
+    }),
     find: jest.fn().mockReturnValue({
       exec: jest.fn().mockResolvedValue([
         { specialties: ['Wedding', 'Portrait'] },
@@ -46,12 +60,25 @@ describe('PhotographersService', () => {
     skip: jest.fn().mockReturnThis(),
     limit: jest.fn().mockReturnThis(),
     exec: jest.fn().mockResolvedValue([]),
-    countDocuments: jest.fn().mockImplementation((query) => createQueryMock(query?.isAvailable ? 80 : 100)),
+    countDocuments: jest.fn().mockImplementation((query) => {
+      if (query?.isAvailable && query?.deletedAt) {
+        return createQueryMock(80);
+      }
+      if (query?.deletedAt) {
+        return createQueryMock(100);
+      }
+      return createQueryMock(100);
+    }),
     aggregate: jest.fn().mockImplementation((pipeline) => {
-      if (pipeline[0].$group?._id === null && pipeline[0].$group?.avgRating) {
+      // Check if pipeline has a $match stage with deletedAt and a $group stage with avgRating or avgPrice
+      const hasDeletedAtMatch = pipeline.some((stage: any) => stage.$match?.deletedAt?.$exists === false);
+      const hasAvgRating = pipeline.some((stage: any) => stage.$group?.avgRating);
+      const hasAvgPrice = pipeline.some((stage: any) => stage.$group?.avgPrice);
+      
+      if (hasDeletedAtMatch && hasAvgRating) {
         return createQueryMock([{ avgRating: 4.5 }]);
       }
-      if (pipeline[0].$group?._id === null && pipeline[0].$group?.avgPrice) {
+      if (hasDeletedAtMatch && hasAvgPrice) {
         return createQueryMock([{ avgPrice: 200 }]);
       }
       return createQueryMock([]);
@@ -100,7 +127,7 @@ describe('PhotographersService', () => {
     it('should return a photographer by email', async () => {
       const result = await service.findByEmail('john.doe@example.com');
       expect(result).toEqual(mockPhotographer);
-      expect(model.findOne).toHaveBeenCalledWith({ email: 'john.doe@example.com' });
+      expect(model.findOne).toHaveBeenCalledWith({ email: 'john.doe@example.com', deletedAt: { $exists: false } });
     });
 
     it('should return null if not found', async () => {

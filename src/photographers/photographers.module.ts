@@ -2,7 +2,7 @@ import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { PhotographersController } from './photographers.controller';
 import { PhotographersService } from './photographers.service';
-import { Photographer, PhotographerSchema } from './schemas/photographer.schema';
+import { Photographer, PhotographerSchema } from '../schemas/photographer.schema';
 
 @Module({
   imports: [

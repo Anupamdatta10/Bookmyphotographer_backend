@@ -2,7 +2,7 @@ import { Injectable, NotFoundException, BadRequestException, ConflictException }
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types, FilterQuery } from 'mongoose';
 import * as bcrypt from 'bcrypt';
-import { User, UserDocument, UserRole } from './schemas/user.schema';
+import { User, UserDocument, UserRole } from '../schemas/user.schema';
 import { CreateUserDto, UpdateUserDto, UserQueryDto, LoginDto } from './dto/user.dto';
 
 @Injectable()
@@ -35,7 +35,7 @@ export class UsersService {
     const {
       page = '1',
       limit = '10',
-      role,
+      type,
       isActive,
       search,
       sortBy = 'createdAt',
@@ -48,8 +48,8 @@ export class UsersService {
     // Build filter query
     const filter: FilterQuery<UserDocument> = {};
 
-    if (role) {
-      filter.role = role;
+    if (type) {
+      filter.type = type;
     }
 
     if (isActive !== undefined) {
@@ -60,8 +60,13 @@ export class UsersService {
       filter.$or = [
         { name: { $regex: search, $options: 'i' } },
         { email: { $regex: search, $options: 'i' } },
+        { city: { $regex: search, $options: 'i' } },
+        { country: { $regex: search, $options: 'i' } },
       ];
     }
+
+    // Exclude soft deleted
+    filter.deletedAt = { $exists: false };
 
     // Build sort object
     const sort: Record<string, 1 | -1> = {};
@@ -92,7 +97,7 @@ export class UsersService {
       throw new BadRequestException('Invalid user ID');
     }
 
-    const user = await this.userModel.findById(id).select('-password').exec();
+    const user = await this.userModel.findOne({ _id: id, deletedAt: { $exists: false } }).select('-password').exec();
     if (!user) {
       throw new NotFoundException(`User with ID ${id} not found`);
     }
@@ -100,11 +105,11 @@ export class UsersService {
   }
 
   async findByEmail(email: string): Promise<UserDocument | null> {
-    return this.userModel.findOne({ email: email.toLowerCase() }).exec();
+    return this.userModel.findOne({ email: email.toLowerCase(), deletedAt: { $exists: false } }).exec();
   }
 
   async findByEmailWithPassword(email: string): Promise<UserDocument | null> {
-    return this.userModel.findOne({ email: email.toLowerCase() }).select('+password').exec();
+    return this.userModel.findOne({ email: email.toLowerCase(), deletedAt: { $exists: false } }).select('+password').exec();
   }
 
   async update(id: string, updateUserDto: UpdateUserDto): Promise<UserDocument> {
@@ -117,6 +122,7 @@ export class UsersService {
       const existingUser = await this.userModel.findOne({
         email: updateUserDto.email.toLowerCase(),
         _id: { $ne: id },
+        deletedAt: { $exists: false },
       });
       if (existingUser) {
         throw new ConflictException('User with this email already exists');
@@ -135,7 +141,7 @@ export class UsersService {
     }
 
     const updatedUser = await this.userModel
-      .findByIdAndUpdate(id, updateData, { new: true, runValidators: true })
+      .findOneAndUpdate({ _id: id, deletedAt: { $exists: false } }, updateData, { new: true, runValidators: true })
       .select('-password')
       .exec();
 
@@ -151,7 +157,13 @@ export class UsersService {
       throw new BadRequestException('Invalid user ID');
     }
 
-    const result = await this.userModel.findByIdAndDelete(id).exec();
+    // Soft delete
+    const result = await this.userModel.findOneAndUpdate(
+      { _id: id, deletedAt: { $exists: false } },
+      { deletedAt: new Date() },
+      { new: true }
+    ).exec();
+
     if (!result) {
       throw new NotFoundException(`User with ID ${id} not found`);
     }
@@ -176,26 +188,29 @@ export class UsersService {
 
   async getStats(): Promise<{
     total: number;
-    clients: number;
-    photographers: number;
     admins: number;
+    photographers: number;
+    partners: number;
+    superadmins: number;
     active: number;
     inactive: number;
   }> {
-    const [total, clients, photographers, admins, active, inactive] = await Promise.all([
-      this.userModel.countDocuments().exec(),
-      this.userModel.countDocuments({ role: UserRole.CLIENT }).exec(),
-      this.userModel.countDocuments({ role: UserRole.PHOTOGRAPHER }).exec(),
-      this.userModel.countDocuments({ role: UserRole.ADMIN }).exec(),
-      this.userModel.countDocuments({ isActive: true }).exec(),
-      this.userModel.countDocuments({ isActive: false }).exec(),
+    const [total, admins, photographers, partners, superadmins, active, inactive] = await Promise.all([
+      this.userModel.countDocuments({ deletedAt: { $exists: false } }).exec(),
+      this.userModel.countDocuments({ type: UserRole.ADMIN, deletedAt: { $exists: false } }).exec(),
+      this.userModel.countDocuments({ type: UserRole.PHOTOGRAPHER, deletedAt: { $exists: false } }).exec(),
+      this.userModel.countDocuments({ type: UserRole.PARTNER, deletedAt: { $exists: false } }).exec(),
+      this.userModel.countDocuments({ type: UserRole.SUPERADMIN, deletedAt: { $exists: false } }).exec(),
+      this.userModel.countDocuments({ isActive: true, deletedAt: { $exists: false } }).exec(),
+      this.userModel.countDocuments({ isActive: false, deletedAt: { $exists: false } }).exec(),
     ]);
 
     return {
       total,
-      clients,
-      photographers,
       admins,
+      photographers,
+      partners,
+      superadmins,
       active,
       inactive,
     };

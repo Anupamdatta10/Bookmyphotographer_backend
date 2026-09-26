@@ -15,7 +15,7 @@ import {
 import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiQuery } from '@nestjs/swagger';
 import { PhotographersService } from './photographers.service';
 import { CreatePhotographerDto, UpdatePhotographerDto, PhotographerQueryDto } from './dto/photographer.dto';
-import { Photographer } from './schemas/photographer.schema';
+import { Photographer } from '../schemas/photographer.schema';
 
 @ApiTags('photographers')
 @Controller('photographers')
