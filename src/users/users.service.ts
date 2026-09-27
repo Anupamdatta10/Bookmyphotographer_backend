@@ -1,17 +1,108 @@
-import { Injectable, NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ConflictException, ServiceUnavailableException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types, FilterQuery } from 'mongoose';
 import * as bcrypt from 'bcrypt';
+import { randomInt } from 'crypto';
+import * as nodemailer from 'nodemailer';
 import { User, UserDocument, UserRole } from '../schemas/user.schema';
-import { CreateUserDto, UpdateUserDto, UserQueryDto, LoginDto } from './dto/user.dto';
+import { RegistrationOtp, RegistrationOtpDocument } from '../schemas/registration-otp.schema';
+import { CreateUserDto, CreateUserFirstDto, CreateUserSecondDto, UpdateUserDto, UserQueryDto, LoginDto } from './dto/user.dto';
 import { FileUploadService } from '@/common/services/file-upload.service';
 
 @Injectable()
 export class UsersService {
   constructor(
     @InjectModel(User.name) private userModel: Model<UserDocument>,
+    @InjectModel(RegistrationOtp.name) private registrationOtpModel: Model<RegistrationOtpDocument>,
     private fileUploadService: FileUploadService,
-  ) {}
+    private configService: ConfigService,
+  ) { }
+
+  async sendRegistrationOtp(createUserFirstDto: CreateUserFirstDto): Promise<{ message: string }> {
+    const email = createUserFirstDto.email.toLowerCase();
+    const existingUser = await this.userModel.findOne({ email, deletedAt: { $exists: false } }).exec();
+    if (existingUser) {
+      throw new ConflictException('User with this email already exists');
+    }
+
+    const otp = this.generateOtp();
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+    await this.registrationOtpModel.findOneAndUpdate(
+      { email },
+      { otp, expiresAt },
+      { upsert: true, new: true, setDefaultsOnInsert: true },
+    ).exec();
+
+    try {
+      const user = this.configService.get<string>('EMAIL');
+      const pass = this.configService.get<string>('EMAIL_PASSWORD');
+      if (!user || !pass) {
+        throw new Error('Email settings are missing');
+      }
+
+      const transporter = nodemailer.createTransport({
+        service: 'gmail',
+        auth: { user, pass },
+      });
+      const result = await transporter.sendMail({
+        from: user,
+        to: email,
+        subject: 'Your verification code for BookMyPhotographer',
+        text: `Your verification code is ${otp}. It expires in 10 minutes.`,
+      });
+      console.info('Registration OTP email sent:', {
+        recipient: email,
+        messageId: result.messageId,
+      });
+    } catch (error) {
+      const mailError = error as Error & {
+        code?: string;
+        command?: string;
+        responseCode?: number;
+        response?: string;
+      };
+      console.error('Registration OTP email failed:', {
+        recipient: email,
+        message: mailError.message || String(error),
+        code: mailError.code,
+        command: mailError.command,
+        responseCode: mailError.responseCode,
+        response: mailError.response,
+      });
+      await this.registrationOtpModel.deleteOne({ email, otp }).exec();
+      throw new ServiceUnavailableException('Unable to send verification email. Check SMTP configuration.');
+    }
+
+    return { message: 'Request received. Verification email sent.' };
+  }
+
+  async verifyRegistrationOtp(email: string, otp: string): Promise<{ message: string }> {
+    const record = await this.registrationOtpModel.findOne({
+      email: email.toLowerCase(),
+      otp,
+      expiresAt: { $gt: new Date() },
+    }).exec();
+
+    if (!record) {
+      throw new BadRequestException('Invalid or expired verification code');
+    }
+
+    await this.registrationOtpModel.deleteOne({ _id: record._id }).exec();
+    return { message: 'Email verified successfully' };
+  }
+
+  private generateOtp(): string {
+    return randomInt(100000, 1000000).toString();
+  }
+
+  async createSecondStep(createUserSecondDto: CreateUserSecondDto, file: Express.Multer.File) {
+    const profileImageUrl = await this.fileUploadService.uploadFile(file, 'profiles');
+    return {
+      message: 'Second step received',
+      data: { ...createUserSecondDto, profileImageUrl },
+    };
+  }
 
   async create(createUserDto: CreateUserDto, file?: Express.Multer.File): Promise<UserDocument> {
     // Check if email already exists

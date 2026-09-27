@@ -1,4 +1,4 @@
-import { IsString, IsEmail, IsOptional, IsEnum, MinLength, MaxLength, IsUrl, IsBoolean } from 'class-validator';
+import { IsString, IsEmail, IsOptional, IsEnum, MinLength, MaxLength, IsUrl, IsBoolean, Matches } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { UserRole } from '../../schemas/user.schema';
 
@@ -53,6 +53,67 @@ export class CreateUserDto {
   @IsOptional()
   @IsUrl()
   profileImageUrl?: string;
+}
+
+export class CreateUserFirstDto {
+  @ApiProperty({ example: 'John Doe' })
+  @IsString()
+  @MinLength(2)
+  @MaxLength(100)
+  name: string;
+
+  @ApiProperty({ example: 'john.doe@example.com' })
+  @IsEmail()
+  email: string;
+
+  @ApiProperty({ example: 'securePassword123' })
+  @IsString()
+  @MinLength(8)
+  @MaxLength(50)
+  password: string;
+}
+
+export class CreateUserSecondDto {
+  @ApiPropertyOptional({ enum: UserRole, example: UserRole.PARTNER })
+  @IsOptional()
+  @IsEnum(UserRole)
+  type?: UserRole;
+
+  @ApiPropertyOptional({ example: '+1234567890' })
+  @IsOptional()
+  @IsString()
+  phone?: string;
+
+  @ApiPropertyOptional({ example: 'New York' })
+  @IsOptional()
+  @IsString()
+  city?: string;
+
+  @ApiPropertyOptional({ example: 'USA' })
+  @IsOptional()
+  @IsString()
+  country?: string;
+
+  @ApiPropertyOptional({ example: '123 Main St' })
+  @IsOptional()
+  @IsString()
+  address1?: string;
+
+  @ApiPropertyOptional({ example: 'Apt 4B' })
+  @IsOptional()
+  @IsString()
+  address2?: string;
+}
+
+export class VerifyOtpDto {
+  @ApiProperty({ example: 'john.doe@example.com' })
+  @IsEmail()
+  email: string;
+
+  @ApiProperty({ example: '123456' })
+  @IsString()
+  @Matches(/^\d{6}$/)
+  otp: string;
 }
 
 export class UpdateUserDto {

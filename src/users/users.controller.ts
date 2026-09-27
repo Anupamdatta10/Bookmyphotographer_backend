@@ -17,45 +17,64 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiQuery, ApiConsumes, ApiBody } from '@nestjs/swagger';
 import { UsersService } from './users.service';
-import { CreateUserDto, UpdateUserDto, UserQueryDto, LoginDto } from './dto/user.dto';
+import { CreateUserFirstDto, CreateUserSecondDto, UpdateUserDto, UserQueryDto, LoginDto, VerifyOtpDto } from './dto/user.dto';
 import { User, UserRole } from '../schemas/user.schema';
 
 @ApiTags('users')
 @Controller('users')
 export class UsersController {
-  constructor(private readonly usersService: UsersService) {}
+  constructor(private readonly usersService: UsersService) { }
 
-  @Post()
-  @ApiOperation({ summary: 'Create a new user with optional profile image' })
+  @Post('first')
+  @ApiOperation({ summary: 'Create user first step - name, email, password only' })
+  @ApiResponse({ status: 201, description: 'User first step data received' })
+  @ApiResponse({ status: 400, description: 'Bad request - validation error' })
+  @UsePipes(new ValidationPipe({ transform: true }))
+  async createFirst(@Body() createUserFirstDto: CreateUserFirstDto) {
+    console.log('First endpoint data:', {
+      name: createUserFirstDto.name,
+      email: createUserFirstDto.email,
+    });
+    return this.usersService.sendRegistrationOtp(createUserFirstDto);
+  }
+
+  @Post('verify-otp')
+  @ApiOperation({ summary: 'Verify registration email OTP' })
+  @ApiResponse({ status: 200, description: 'Email verified successfully' })
+  @ApiResponse({ status: 400, description: 'Invalid or expired verification code' })
+  @UsePipes(new ValidationPipe({ transform: true }))
+  async verifyOtp(@Body() verifyOtpDto: VerifyOtpDto) {
+    return this.usersService.verifyRegistrationOtp(verifyOtpDto.email, verifyOtpDto.otp);
+  }
+
+  @Post('second')
+  @ApiOperation({ summary: 'Submit user profile details and profile image' })
   @ApiConsumes('multipart/form-data')
   @ApiBody({
     schema: {
       type: 'object',
       properties: {
-        name: { type: 'string', example: 'John Doe' },
-        email: { type: 'string', example: 'john.doe@example.com' },
-        password: { type: 'string', example: 'securePassword123' },
-        type: { type: 'string', enum: ['ADMIN', 'PHOTOGRAPHER', 'PARTNER', 'SUPERADMIN'], example: 'PARTNER' },
-        phone: { type: 'string', example: '+1234567890' },
-        city: { type: 'string', example: 'New York' },
-        country: { type: 'string', example: 'USA' },
-        address1: { type: 'string', example: '123 Main St' },
-        address2: { type: 'string', example: 'Apt 4B' },
+        type: { type: 'string', enum: ['ADMIN', 'PHOTOGRAPHER', 'PARTNER', 'SUPERADMIN'] },
+        phone: { type: 'string' },
+        city: { type: 'string' },
+        country: { type: 'string' },
+        address1: { type: 'string' },
+        address2: { type: 'string' },
         file: { type: 'string', format: 'binary' },
       },
-      required: ['name', 'email', 'password'],
+      required: ['file'],
     },
   })
-  @ApiResponse({ status: 201, description: 'User created successfully', type: User })
+  @ApiResponse({ status: 201, description: 'User second step data received' })
   @ApiResponse({ status: 400, description: 'Bad request - validation error' })
-  @ApiResponse({ status: 409, description: 'Conflict - email already exists' })
   @UseInterceptors(FileInterceptor('file'))
   @UsePipes(new ValidationPipe({ transform: true }))
-  async create(
-    @Body() createUserDto: CreateUserDto,
-    @UploadedFile() file?: Express.Multer.File,
-  ): Promise<User> {
-    return this.usersService.create(createUserDto, file);
+  async createSecond(
+    @Body() createUserSecondDto: CreateUserSecondDto,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    console.log('Second endpoint data:', createUserSecondDto);
+    return this.usersService.createSecondStep(createUserSecondDto, file);
   }
 
   @Post('login')
