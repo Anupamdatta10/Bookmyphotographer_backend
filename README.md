@@ -241,4 +241,4 @@ This project is licensed under the MIT License.
 For issues and questions:
 - Create an issue in the repository
 - Check the API documentation at `/api/docs`
-- Review the logs for error detailsBookmyphotographer_backend
+- Review the logs for error details #Bookmyphotographer_backend
