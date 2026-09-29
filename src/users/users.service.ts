@@ -8,7 +8,7 @@ import * as nodemailer from 'nodemailer';
 import { User, UserDocument, UserRole } from '../schemas/user.schema';
 import { RegistrationOtp, RegistrationOtpDocument } from '../schemas/registration-otp.schema';
 import { CreateUserDto, CreateUserFirstDto, CreateUserSecondDto, UpdateUserDto, UserQueryDto, LoginDto } from './dto/user.dto';
-import { FileUploadService } from '@/common/services/file-upload.service';
+import { FileUploadService } from '../common/services/file-upload.service';
 
 @Injectable()
 export class UsersService {
@@ -28,9 +28,10 @@ export class UsersService {
 
     const otp = this.generateOtp();
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+    const passwordHash = await bcrypt.hash(createUserFirstDto.password, 12);
     await this.registrationOtpModel.findOneAndUpdate(
       { email },
-      { otp, expiresAt },
+      { otp, name: createUserFirstDto.name, passwordHash, expiresAt },
       { upsert: true, new: true, setDefaultsOnInsert: true },
     ).exec();
 
@@ -82,12 +83,18 @@ export class UsersService {
       email: email.toLowerCase(),
       otp,
       expiresAt: { $gt: new Date() },
-    }).exec();
+    }).select('+passwordHash').exec();
 
     if (!record) {
       throw new BadRequestException('Invalid or expired verification code');
     }
 
+    const user = new this.userModel({
+      name: record.name,
+      email: record.email,
+      password: record.passwordHash,
+    });
+    await user.save();
     await this.registrationOtpModel.deleteOne({ _id: record._id }).exec();
     return { message: 'Email verified successfully' };
   }
@@ -96,12 +103,45 @@ export class UsersService {
     return randomInt(100000, 1000000).toString();
   }
 
-  async createSecondStep(createUserSecondDto: CreateUserSecondDto, file: Express.Multer.File) {
-    const profileImageUrl = await this.fileUploadService.uploadFile(file, 'profiles');
-    console.log("imgUrl==>"+profileImageUrl);
+  async createSecondStep(createUserSecondDto: CreateUserSecondDto, file?: Express.Multer.File) {
+    const email = createUserSecondDto.email.toLowerCase();
+    const existingUser = await this.userModel.findOne({ email, deletedAt: { $exists: false } }).exec();
+    if (!existingUser) {
+      throw new NotFoundException(`User with email ${email} not found`);
+    }
+
+    const profileImageUrl = file
+      ? await this.fileUploadService.uploadFile(file, 'profiles')
+      : null;
+    const hasCoordinates = createUserSecondDto.latitude !== undefined && createUserSecondDto.longitude !== undefined;
+    const updateData = {
+      ...(createUserSecondDto.type ? { type: createUserSecondDto.type } : {}),
+      phone: createUserSecondDto.phone ?? null,
+      city: createUserSecondDto.city ?? null,
+      country: createUserSecondDto.country ?? null,
+      address1: createUserSecondDto.address1 ?? null,
+      address2: createUserSecondDto.address2 ?? null,
+      location: hasCoordinates
+        ? {
+            type: 'Point' as const,
+            coordinates: [createUserSecondDto.longitude!, createUserSecondDto.latitude!] as [number, number],
+          }
+        : null,
+      profileImageUrl,
+    };
+
+    const updatedUser = await this.userModel
+      .findOneAndUpdate({ email, deletedAt: { $exists: false } }, { $set: updateData }, { new: true, runValidators: true })
+      .select('-password')
+      .exec();
+    if (!updatedUser) {
+      throw new NotFoundException(`User with email ${email} not found`);
+    }
+
     return {
-      message: 'Second step received',
-      data: { ...createUserSecondDto, profileImageUrl },
+      message: 'User profile updated successfully',
+      update_sts:true,
+      data: updatedUser,
     };
   }
 

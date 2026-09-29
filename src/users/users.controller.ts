@@ -54,15 +54,18 @@ export class UsersController {
     schema: {
       type: 'object',
       properties: {
+        email: { type: 'string', format: 'email' },
         type: { type: 'string', enum: ['ADMIN', 'PHOTOGRAPHER', 'PARTNER', 'SUPER-ADMIN'] },
         phone: { type: 'string' },
         city: { type: 'string' },
         country: { type: 'string' },
         address1: { type: 'string' },
         address2: { type: 'string' },
+        latitude: { type: 'number' },
+        longitude: { type: 'number' },
         file: { type: 'string', format: 'binary' },
       },
-      required: ['file'],
+      required: ['email'],
     },
   })
   @ApiResponse({ status: 201, description: 'User second step data received' })
@@ -71,11 +74,11 @@ export class UsersController {
   @UsePipes(new ValidationPipe({ transform: true }))
   async createSecond(
     @Body() createUserSecondDto: CreateUserSecondDto,
-    @UploadedFile() file: Express.Multer.File,
+    @UploadedFile() file?: Express.Multer.File,
   ) {
     console.log('Second endpoint data:', createUserSecondDto);
     return this.usersService.createSecondStep(createUserSecondDto, file);
-  }
+  }             
 
   @Post('login')
   @ApiOperation({ summary: 'User login' })

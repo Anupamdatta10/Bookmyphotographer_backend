@@ -1,4 +1,4 @@
-import { IsString, IsEmail, IsPhoneNumber, IsArray, IsOptional, IsNumber, Min, Max, IsUrl, IsBoolean } from 'class-validator';
+import { IsString, IsEmail, IsPhoneNumber, IsArray, IsOptional, IsNumber, Min, Max, IsUrl, IsBoolean, MinLength } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 
@@ -10,6 +10,11 @@ export class CreatePhotographerDto {
   @ApiProperty({ example: 'john.doe@example.com' })
   @IsEmail()
   email: string;
+
+  @ApiProperty({ example: 'securePassword123', minLength: 8 })
+  @IsString()
+  @MinLength(8)
+  password: string;
 
   @ApiProperty({ example: '+1234567890' })
   @IsString()

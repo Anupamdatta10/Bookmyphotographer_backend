@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getModelToken } from '@nestjs/mongoose';
 import { PhotographersService } from './photographers.service';
-import { Photographer } from '../schemas/photographer.schema';
+import { User } from '../schemas/user.schema';
 import { CreatePhotographerDto } from './dto/photographer.dto';
 import { NotFoundException, BadRequestException } from '@nestjs/common';
 
@@ -27,6 +27,7 @@ describe('PhotographersService', () => {
   };
 
   const createQueryMock = (result: any) => ({
+    select: jest.fn().mockReturnThis(),
     exec: jest.fn().mockResolvedValue(result),
   });
 
@@ -90,14 +91,14 @@ describe('PhotographersService', () => {
       providers: [
         PhotographersService,
         {
-          provide: getModelToken(Photographer.name),
+          provide: getModelToken(User.name),
           useValue: mockModel,
         },
       ],
     }).compile();
 
     service = module.get<PhotographersService>(PhotographersService);
-    model = module.get(getModelToken(Photographer.name));
+    model = module.get(getModelToken(User.name));
   });
 
   afterEach(() => {
@@ -127,7 +128,11 @@ describe('PhotographersService', () => {
     it('should return a photographer by email', async () => {
       const result = await service.findByEmail('john.doe@example.com');
       expect(result).toEqual(mockPhotographer);
-      expect(model.findOne).toHaveBeenCalledWith({ email: 'john.doe@example.com', deletedAt: { $exists: false } });
+      expect(model.findOne).toHaveBeenCalledWith({
+        email: 'john.doe@example.com',
+        type: 'PHOTOGRAPHER',
+        deletedAt: { $exists: false },
+      });
     });
 
     it('should return null if not found', async () => {

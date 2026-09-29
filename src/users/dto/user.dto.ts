@@ -1,5 +1,6 @@
-import { IsString, IsEmail, IsOptional, IsEnum, MinLength, MaxLength, IsUrl, IsBoolean, Matches } from 'class-validator';
+import { IsString, IsEmail, IsOptional, IsEnum, MinLength, MaxLength, IsUrl, IsBoolean, Matches, IsNumber, Min, Max } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
 import { UserRole } from '../../schemas/user.schema';
 
 export class CreateUserDto {
@@ -74,6 +75,10 @@ export class CreateUserFirstDto {
 }
 
 export class CreateUserSecondDto {
+  @ApiProperty({ example: 'john.doe@example.com' })
+  @IsEmail()
+  email: string;
+
   @ApiPropertyOptional({ enum: UserRole, example: UserRole.PARTNER })
   @IsOptional()
   @IsEnum(UserRole)
@@ -103,6 +108,22 @@ export class CreateUserSecondDto {
   @IsOptional()
   @IsString()
   address2?: string;
+
+  @ApiPropertyOptional({ example: 37.7749, type: Number })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(-90)
+  @Max(90)
+  latitude?: number;
+
+  @ApiPropertyOptional({ example: -122.4194, type: Number })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(-180)
+  @Max(180)
+  longitude?: number;
 }
 
 export class VerifyOtpDto {

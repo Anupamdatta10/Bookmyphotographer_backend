@@ -13,7 +13,7 @@ export enum BookingStatus {
 
 @Schema({ timestamps: true, collection: 'bookings' })
 export class Booking {
-  @Prop({ type: Types.ObjectId, ref: 'Photographer', required: true })
+  @Prop({ type: Types.ObjectId, ref: 'User', required: true })
   photographerId: Types.ObjectId;
 
   @Prop({ type: Types.ObjectId, ref: 'User', required: true })
