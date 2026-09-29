@@ -98,6 +98,7 @@ export class UsersService {
 
   async createSecondStep(createUserSecondDto: CreateUserSecondDto, file: Express.Multer.File) {
     const profileImageUrl = await this.fileUploadService.uploadFile(file, 'profiles');
+    console.log("imgUrl==>"+profileImageUrl);
     return {
       message: 'Second step received',
       data: { ...createUserSecondDto, profileImageUrl },

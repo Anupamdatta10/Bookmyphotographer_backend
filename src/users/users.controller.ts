@@ -54,7 +54,7 @@ export class UsersController {
     schema: {
       type: 'object',
       properties: {
-        type: { type: 'string', enum: ['ADMIN', 'PHOTOGRAPHER', 'PARTNER', 'SUPERADMIN'] },
+        type: { type: 'string', enum: ['ADMIN', 'PHOTOGRAPHER', 'PARTNER', 'SUPER-ADMIN'] },
         phone: { type: 'string' },
         city: { type: 'string' },
         country: { type: 'string' },
