@@ -5,9 +5,9 @@ import { Model, Types, FilterQuery } from 'mongoose';
 import * as bcrypt from 'bcrypt';
 import { randomInt } from 'crypto';
 import * as nodemailer from 'nodemailer';
-import { User, UserDocument, UserRole } from '../schemas/user.schema';
+import { User, UserDocument, UserRole, UserStatus } from '../schemas/user.schema';
 import { RegistrationOtp, RegistrationOtpDocument } from '../schemas/registration-otp.schema';
-import { CreateUserDto, CreateUserFirstDto, CreateUserSecondDto, UpdateUserDto, UserQueryDto, LoginDto } from './dto/user.dto';
+import { CreateUserDto, CreateUserFirstDto, CreateUserSecondDto, UpdateUserDto, UpdateOccupiedDatesDto, UserQueryDto, LoginDto } from './dto/user.dto';
 import { FileUploadService } from '../common/services/file-upload.service';
 
 @Injectable()
@@ -254,46 +254,43 @@ export class UsersService {
     return this.userModel.findOne({ email: email.toLowerCase(), deletedAt: { $exists: false } }).select('+password').exec();
   }
 
-  async update(id: string, updateUserDto: UpdateUserDto, file?: Express.Multer.File): Promise<UserDocument> {
+  async update(id: string, updateUserDto: UpdateUserDto): Promise<UserDocument> {
     if (!Types.ObjectId.isValid(id)) {
       throw new BadRequestException('Invalid user ID');
     }
 
-    // Check if email is being updated and if it already exists
-    if (updateUserDto.email) {
+    const updateData: Record<string, unknown> = Object.fromEntries(
+      Object.entries(updateUserDto).filter(
+        ([key, value]) => key !== 'profileImageUrl' && value !== undefined,
+      ),
+    );
+
+    if (typeof updateData.email === 'string') {
+      updateData.email = updateData.email.toLowerCase();
       const existingUser = await this.userModel.findOne({
-        email: updateUserDto.email.toLowerCase(),
+        email: updateData.email,
         _id: { $ne: id },
         deletedAt: { $exists: false },
-      });
+      }).exec();
       if (existingUser) {
         throw new ConflictException('User with this email already exists');
       }
     }
 
-    // Hash password if being updated
-    const updateData: Record<string, unknown> = { ...updateUserDto };
-    if (updateUserDto.password) {
-      const saltRounds = 12;
-      updateData.password = await bcrypt.hash(updateUserDto.password, saltRounds);
+    if (typeof updateData.password === 'string' && updateData.password) {
+      updateData.password = await bcrypt.hash(updateData.password, 12);
     }
 
-    if (updateUserDto.email) {
-      updateData.email = updateUserDto.email.toLowerCase();
-    }
-
-    // Upload new profile image if provided
-    if (file) {
-      // Delete old profile image if exists
-      const oldUser = await this.userModel.findById(id).exec();
-      if (oldUser?.profileImageUrl) {
-        await this.fileUploadService.deleteFile(oldUser.profileImageUrl);
-      }
-      updateData.profileImageUrl = await this.fileUploadService.uploadFile(file, 'profiles');
+    if (Object.keys(updateData).length === 0) {
+      throw new BadRequestException('No user details provided');
     }
 
     const updatedUser = await this.userModel
-      .findOneAndUpdate({ _id: id, deletedAt: { $exists: false } }, updateData, { new: true, runValidators: true })
+      .findOneAndUpdate(
+        { _id: id, deletedAt: { $exists: false } },
+        { $set: updateData },
+        { new: true, runValidators: true },
+      )
       .select('-password')
       .exec();
 
@@ -302,6 +299,86 @@ export class UsersService {
     }
 
     return updatedUser;
+  }
+
+  async updateProfilePicture(id: string, file?: Express.Multer.File): Promise<UserDocument> {
+    if (!Types.ObjectId.isValid(id)) {
+      throw new BadRequestException('Invalid user ID');
+    }
+    if (!file) {
+      throw new BadRequestException('Profile picture file is required');
+    }
+
+    const user = await this.userModel
+      .findOne({ _id: id, deletedAt: { $exists: false } })
+      .exec();
+    if (!user) {
+      throw new NotFoundException(`User with ID ${id} not found`);
+    }
+
+    const profileImageUrl = await this.fileUploadService.uploadFile(file, 'profiles');
+    const updatedUser = await this.userModel
+      .findOneAndUpdate(
+        { _id: id, deletedAt: { $exists: false } },
+        { $set: { profileImageUrl } },
+        { new: true, runValidators: true },
+      )
+      .select('-password')
+      .exec();
+
+    if (!updatedUser) {
+      await this.fileUploadService.deleteFile(profileImageUrl);
+      throw new NotFoundException(`User with ID ${id} not found`);
+    }
+
+    if (user.profileImageUrl) {
+      await this.fileUploadService.deleteFile(user.profileImageUrl);
+    }
+
+    return updatedUser;
+  }
+
+  async updateOccupiedDates(id: string, updateDto: UpdateOccupiedDatesDto): Promise<UserDocument> {
+    if (!Types.ObjectId.isValid(id)) {
+      throw new BadRequestException('Invalid user ID');
+    }
+
+    const occupiedDates = updateDto.occupiedDates.map((date) => new Date(date));
+    const updatedUser = await this.userModel
+      .findOneAndUpdate(
+        { _id: id, deletedAt: { $exists: false } },
+        { $set: { occupiedDates } },
+        { new: true, runValidators: true },
+      )
+      .select('-password')
+      .exec();
+
+    if (!updatedUser) {
+      throw new NotFoundException(`User with ID ${id} not found`);
+    }
+
+    return updatedUser;
+  }
+
+  async updatePhotographerStatus(id: string, status: UserStatus): Promise<UserDocument> {
+    if (!Types.ObjectId.isValid(id)) {
+      throw new BadRequestException('Invalid photographer ID');
+    }
+
+    const updatedPhotographer = await this.userModel
+      .findOneAndUpdate(
+        { _id: id, type: UserRole.PHOTOGRAPHER, deletedAt: { $exists: false } },
+        { $set: { status } },
+        { new: true, runValidators: true },
+      )
+      .select('-password')
+      .exec();
+
+    if (!updatedPhotographer) {
+      throw new NotFoundException(`Photographer with ID ${id} not found`);
+    }
+
+    return updatedPhotographer;
   }
 
   async remove(id: string): Promise<void> {

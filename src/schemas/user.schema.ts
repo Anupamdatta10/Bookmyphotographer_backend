@@ -102,6 +102,9 @@ export class User {
     coordinates: [number, number];
   } | null;
 
+  @Prop({ type: [Date], default: [] })
+  occupiedDates: Date[];
+
   @Prop({ type: Date })
   deletedAt: Date;
 }

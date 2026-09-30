@@ -124,6 +124,32 @@ describe('PhotographersService', () => {
     });
   });
 
+  describe('findAll', () => {
+    it('returns only active photographers to the public directory', async () => {
+      const query = {
+        select: jest.fn().mockReturnThis(),
+        sort: jest.fn().mockReturnThis(),
+        skip: jest.fn().mockReturnThis(),
+        limit: jest.fn().mockReturnThis(),
+        exec: jest.fn().mockResolvedValue([mockPhotographer]),
+      };
+      model.find.mockReturnValueOnce(query);
+
+      await service.findAll({ page: 1, limit: 10 });
+
+      expect(model.find).toHaveBeenCalledWith({
+        type: 'PHOTOGRAPHER',
+        status: 'active',
+        deletedAt: { $exists: false },
+      });
+      expect(model.countDocuments).toHaveBeenCalledWith({
+        type: 'PHOTOGRAPHER',
+        status: 'active',
+        deletedAt: { $exists: false },
+      });
+    });
+  });
+
   describe('findByEmail', () => {
     it('should return a photographer by email', async () => {
       const result = await service.findByEmail('john.doe@example.com');

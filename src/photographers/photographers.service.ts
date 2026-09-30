@@ -2,7 +2,7 @@ import { Injectable, NotFoundException, BadRequestException } from '@nestjs/comm
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types, FilterQuery } from 'mongoose';
 import * as bcrypt from 'bcrypt';
-import { User, UserDocument, UserRole } from '../schemas/user.schema';
+import { User, UserDocument, UserRole, UserStatus } from '../schemas/user.schema';
 import { CreatePhotographerDto, UpdatePhotographerDto, PhotographerQueryDto } from './dto/photographer.dto';
 
 @Injectable()
@@ -47,7 +47,10 @@ export class PhotographersService {
     } = queryDto;
 
     // Build filter query
-    const filter: FilterQuery<UserDocument> = { type: UserRole.PHOTOGRAPHER };
+    const filter: FilterQuery<UserDocument> = {
+      type: UserRole.PHOTOGRAPHER,
+      status: UserStatus.ACTIVE,
+    };
 
     if (specialty) {
       filter.specialties = { $in: [specialty] };

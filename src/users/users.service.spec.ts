@@ -1,5 +1,5 @@
 import { UsersService } from './users.service';
-import { UserRole } from '../schemas/user.schema';
+import { UserRole, UserStatus } from '../schemas/user.schema';
 
 describe('UsersService registration flow', () => {
   let service: UsersService;
@@ -81,6 +81,53 @@ describe('UsersService registration flow', () => {
           profileImageUrl: null,
         },
       },
+      { new: true, runValidators: true },
+    );
+    expect(updateQuery.select).toHaveBeenCalledWith('-password');
+  });
+
+  it('replaces a user occupied-date list with stored Date values', async () => {
+    const userId = '65a000000000000000000001';
+    const occupiedDates = ['2026-10-05T00:00:00.000Z'];
+    const updatedUser = { _id: userId, occupiedDates };
+    const updateQuery = {
+      select: jest.fn().mockReturnThis(),
+      exec: jest.fn().mockResolvedValue(updatedUser),
+    };
+    userModel.findOneAndUpdate.mockReturnValue(updateQuery);
+
+    await expect(
+      service.updateOccupiedDates(userId, { occupiedDates }),
+    ).resolves.toBe(updatedUser);
+
+    expect(userModel.findOneAndUpdate).toHaveBeenCalledWith(
+      { _id: userId, deletedAt: { $exists: false } },
+      { $set: { occupiedDates: [new Date(occupiedDates[0])] } },
+      { new: true, runValidators: true },
+    );
+    expect(updateQuery.select).toHaveBeenCalledWith('-password');
+  });
+
+  it('updates status only for an existing photographer', async () => {
+    const userId = '65a000000000000000000002';
+    const updatedPhotographer = { _id: userId, status: UserStatus.ACTIVE };
+    const updateQuery = {
+      select: jest.fn().mockReturnThis(),
+      exec: jest.fn().mockResolvedValue(updatedPhotographer),
+    };
+    userModel.findOneAndUpdate.mockReturnValue(updateQuery);
+
+    await expect(
+      service.updatePhotographerStatus(userId, UserStatus.ACTIVE),
+    ).resolves.toBe(updatedPhotographer);
+
+    expect(userModel.findOneAndUpdate).toHaveBeenCalledWith(
+      {
+        _id: userId,
+        type: UserRole.PHOTOGRAPHER,
+        deletedAt: { $exists: false },
+      },
+      { $set: { status: UserStatus.ACTIVE } },
       { new: true, runValidators: true },
     );
     expect(updateQuery.select).toHaveBeenCalledWith('-password');

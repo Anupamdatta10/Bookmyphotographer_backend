@@ -17,7 +17,7 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiQuery, ApiConsumes, ApiBody } from '@nestjs/swagger';
 import { UsersService } from './users.service';
-import { CreateUserFirstDto, CreateUserSecondDto, UpdateUserDto, UserQueryDto, LoginDto, VerifyOtpDto } from './dto/user.dto';
+import { CreateUserFirstDto, CreateUserSecondDto, UpdateUserDto, UpdateOccupiedDatesDto, UpdateUserStatusDto, UserQueryDto, LoginDto, VerifyOtpDto } from './dto/user.dto';
 import { User, UserRole } from '../schemas/user.schema';
 
 @ApiTags('users')
@@ -116,8 +116,8 @@ export class UsersController {
   }
 
   @Patch(':id')
-  @ApiOperation({ summary: 'Update a user with optional profile image' })
-  @ApiConsumes('multipart/form-data')
+  @ApiOperation({ summary: 'Update user details' })
+  @ApiConsumes('application/json')
   @ApiBody({
     schema: {
       type: 'object',
@@ -132,7 +132,6 @@ export class UsersController {
         address1: { type: 'string', example: '123 Main St' },
         address2: { type: 'string', example: 'Apt 4B' },
         isActive: { type: 'boolean', example: true },
-        file: { type: 'string', format: 'binary' },
       },
     },
   })
@@ -141,14 +140,60 @@ export class UsersController {
   @ApiResponse({ status: 404, description: 'User not found' })
   @ApiResponse({ status: 400, description: 'Invalid ID format' })
   @ApiResponse({ status: 409, description: 'Conflict - email already exists' })
-  @UseInterceptors(FileInterceptor('file'))
   @UsePipes(new ValidationPipe({ transform: true }))
   async update(
     @Param('id') id: string,
     @Body() updateUserDto: UpdateUserDto,
+  ): Promise<User> {
+    return this.usersService.update(id, updateUserDto);
+  }
+
+  @Patch(':id/profile-picture')
+  @ApiOperation({ summary: 'Update user profile picture' })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: { file: { type: 'string', format: 'binary' } },
+      required: ['file'],
+    },
+  })
+  @ApiParam({ name: 'id', description: 'User ID' })
+  @ApiResponse({ status: 200, description: 'Profile picture updated successfully', type: User })
+  @UseInterceptors(FileInterceptor('file'))
+  async updateProfilePicture(
+    @Param('id') id: string,
     @UploadedFile() file?: Express.Multer.File,
   ): Promise<User> {
-    return this.usersService.update(id, updateUserDto, file);
+    return this.usersService.updateProfilePicture(id, file);
+  }
+
+  @Patch(':id/occupied-dates')
+  @ApiOperation({ summary: 'Replace a user\'s occupied dates' })
+  @ApiParam({ name: 'id', description: 'User ID' })
+  @ApiResponse({ status: 200, description: 'Occupied dates updated successfully', type: User })
+  @ApiResponse({ status: 400, description: 'Invalid user ID or date list' })
+  @ApiResponse({ status: 404, description: 'User not found' })
+  @UsePipes(new ValidationPipe({ transform: true }))
+  async updateOccupiedDates(
+    @Param('id') id: string,
+    @Body() updateDto: UpdateOccupiedDatesDto,
+  ): Promise<User> {
+    return this.usersService.updateOccupiedDates(id, updateDto);
+  }
+
+  @Patch(':id/status')
+  @ApiOperation({ summary: 'Update a photographer approval status' })
+  @ApiParam({ name: 'id', description: 'Photographer user ID' })
+  @ApiResponse({ status: 200, description: 'Photographer status updated successfully', type: User })
+  @ApiResponse({ status: 400, description: 'Invalid photographer ID or status' })
+  @ApiResponse({ status: 404, description: 'Photographer not found' })
+  @UsePipes(new ValidationPipe({ transform: true }))
+  async updatePhotographerStatus(
+    @Param('id') id: string,
+    @Body() updateDto: UpdateUserStatusDto,
+  ): Promise<User> {
+    return this.usersService.updatePhotographerStatus(id, updateDto.status);
   }
 
   @Delete(':id')
