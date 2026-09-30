@@ -119,6 +119,7 @@ export class UsersService {
       phone: createUserSecondDto.phone ?? null,
       city: createUserSecondDto.city ?? null,
       country: createUserSecondDto.country ?? null,
+      state: createUserSecondDto.state ?? null,
       address1: createUserSecondDto.address1 ?? null,
       address2: createUserSecondDto.address2 ?? null,
       location: hasCoordinates

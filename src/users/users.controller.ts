@@ -25,7 +25,7 @@ import { User, UserRole } from '../schemas/user.schema';
 export class UsersController {
   constructor(private readonly usersService: UsersService) { }
 
-  @Post('first')
+  @Post('signup')
   @ApiOperation({ summary: 'Create user first step - name, email, password only' })
   @ApiResponse({ status: 201, description: 'User first step data received' })
   @ApiResponse({ status: 400, description: 'Bad request - validation error' })
@@ -47,7 +47,7 @@ export class UsersController {
     return this.usersService.verifyRegistrationOtp(verifyOtpDto.email, verifyOtpDto.otp);
   }
 
-  @Post('second')
+  @Post('profileSetup')
   @ApiOperation({ summary: 'Submit user profile details and profile image' })
   @ApiConsumes('multipart/form-data')
   @ApiBody({
@@ -59,6 +59,7 @@ export class UsersController {
         phone: { type: 'string' },
         city: { type: 'string' },
         country: { type: 'string' },
+        state: { type: 'string' },
         address1: { type: 'string' },
         address2: { type: 'string' },
         latitude: { type: 'number' },

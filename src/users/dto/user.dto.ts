@@ -99,6 +99,11 @@ export class CreateUserSecondDto {
   @IsString()
   country?: string;
 
+  @ApiPropertyOptional({ example: 'California' })
+  @IsOptional()
+  @IsString()
+  state?: string;
+
   @ApiPropertyOptional({ example: '123 Main St' })
   @IsOptional()
   @IsString()
