@@ -4,6 +4,7 @@ import { UserRole, UserStatus } from '../schemas/user.schema';
 describe('UsersService registration flow', () => {
   let service: UsersService;
   let userModel: any;
+  let adminModel: any;
   let registrationOtpModel: any;
   let fileUploadService: any;
 
@@ -14,13 +15,14 @@ describe('UsersService registration flow', () => {
     }));
     userModel.findOne = jest.fn();
     userModel.findOneAndUpdate = jest.fn();
+    adminModel = { findOne: jest.fn(), findByIdAndUpdate: jest.fn() };
 
     registrationOtpModel = {
       findOne: jest.fn(),
       deleteOne: jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue({ deletedCount: 1 }) }),
     };
     fileUploadService = { uploadFile: jest.fn() };
-    service = new UsersService(userModel, registrationOtpModel, fileUploadService, {} as any);
+    service = new UsersService(userModel, adminModel, registrationOtpModel, fileUploadService, {} as any);
   });
 
   it('creates a user from verified pending registration details', async () => {

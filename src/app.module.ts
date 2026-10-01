@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
+import { JwtModule } from '@nestjs/jwt';
 import { PhotographersModule } from './photographers/photographers.module';
 import { BookingsModule } from './bookings/bookings.module';
 import { UsersModule } from './users/users.module';
@@ -11,6 +12,8 @@ import { AvailabilitiesModule } from './availabilities/availabilities.module';
 import { PhotoGalleriesModule } from './photo-galleries/photo-galleries.module';
 import { SocialMediaLinksModule } from './social-media-links/social-media-links.module';
 import { CommonModule } from './common/common.module';
+import { PartnerCompaniesModule } from './partner-companies/partner-companies.module';
+import { AdminsModule } from './admins/admins.module';
 
 @Module({
   imports: [
@@ -18,6 +21,15 @@ import { CommonModule } from './common/common.module';
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: ['.env.local', '.env'],
+    }),
+    JwtModule.registerAsync({
+      global: true,
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (configService: ConfigService) => ({
+        secret: configService.getOrThrow<string>('JWT_SECRET'),
+        signOptions: { expiresIn: '10d' },
+      }),
     }),
 
     // MongoDB connection
@@ -43,6 +55,8 @@ import { CommonModule } from './common/common.module';
     AvailabilitiesModule,
     PhotoGalleriesModule,
     SocialMediaLinksModule,
+    PartnerCompaniesModule,
+    AdminsModule,
     CommonModule,
   ],
 })

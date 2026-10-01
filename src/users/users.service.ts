@@ -6,6 +6,7 @@ import * as bcrypt from 'bcrypt';
 import { randomInt } from 'crypto';
 import * as nodemailer from 'nodemailer';
 import { User, UserDocument, UserRole, UserStatus } from '../schemas/user.schema';
+import { Admin, AdminDocument } from '../schemas/admin.schema';
 import { RegistrationOtp, RegistrationOtpDocument } from '../schemas/registration-otp.schema';
 import { CreateUserDto, CreateUserFirstDto, CreateUserSecondDto, UpdateUserDto, UpdateOccupiedDatesDto, UserQueryDto, LoginDto } from './dto/user.dto';
 import { FileUploadService } from '../common/services/file-upload.service';
@@ -14,6 +15,7 @@ import { FileUploadService } from '../common/services/file-upload.service';
 export class UsersService {
   constructor(
     @InjectModel(User.name) private userModel: Model<UserDocument>,
+    @InjectModel(Admin.name) private adminModel: Model<AdminDocument>,
     @InjectModel(RegistrationOtp.name) private registrationOtpModel: Model<RegistrationOtpDocument>,
     private fileUploadService: FileUploadService,
     private configService: ConfigService,
@@ -404,21 +406,29 @@ export class UsersService {
     }
   }
 
-  async validateUser(loginDto: LoginDto): Promise<UserDocument | null> {
+  async validateUser(loginDto: LoginDto): Promise<{
+    user: UserDocument | AdminDocument;
+    accountCollection: 'users' | 'admins';
+  } | null> {
     const user = await this.findByEmailWithPassword(loginDto.email);
-    if (!user) {
+    if (user) {
+      const isPasswordValid = await bcrypt.compare(loginDto.password, user.password);
+      if (!isPasswordValid) return null;
+
+      await this.userModel.findByIdAndUpdate(user._id, { lastLoginAt: new Date() }).exec();
+      return { user, accountCollection: 'users' };
+    }
+
+    const admin = await this.adminModel
+      .findOne({ email: loginDto.email.toLowerCase(), deletedAt: { $exists: false } })
+      .select('+password')
+      .exec();
+    if (!admin || !(await bcrypt.compare(loginDto.password, admin.password))) {
       return null;
     }
 
-    const isPasswordValid = await bcrypt.compare(loginDto.password, user.password);
-    if (!isPasswordValid) {
-      return null;
-    }
-
-    // Update last login
-    await this.userModel.findByIdAndUpdate(user._id, { lastLoginAt: new Date() }).exec();
-
-    return user;
+    await this.adminModel.findByIdAndUpdate(admin._id, { lastLoginAt: new Date() }).exec();
+    return { user: admin, accountCollection: 'admins' };
   }
 
   async getStats(): Promise<{

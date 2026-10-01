@@ -19,11 +19,15 @@ import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiQuery, ApiConsumes, Ap
 import { UsersService } from './users.service';
 import { CreateUserFirstDto, CreateUserSecondDto, UpdateUserDto, UpdateOccupiedDatesDto, UpdateUserStatusDto, UserQueryDto, LoginDto, VerifyOtpDto } from './dto/user.dto';
 import { User, UserRole } from '../schemas/user.schema';
+import { JwtService } from '@nestjs/jwt';
 
 @ApiTags('users')
 @Controller('users')
 export class UsersController {
-  constructor(private readonly usersService: UsersService) { }
+  constructor(
+    private readonly usersService: UsersService,
+    private readonly jwtService: JwtService,
+  ) { }
 
   @Post('signup')
   @ApiOperation({ summary: 'Create user first step - name, email, password only' })
@@ -86,8 +90,20 @@ export class UsersController {
   @ApiResponse({ status: 200, description: 'Login successful', type: User })
   @ApiResponse({ status: 401, description: 'Invalid credentials' })
   @UsePipes(new ValidationPipe({ transform: true }))
-  async login(@Body() loginDto: LoginDto): Promise<User | null> {
-    return this.usersService.validateUser(loginDto);
+  async login(@Body() loginDto: LoginDto): Promise<Record<string, unknown> | null> {
+    const account = await this.usersService.validateUser(loginDto);
+    if (!account) return null;
+
+    const accessToken = await this.jwtService.signAsync({
+      sub: String(account.user._id),
+      type: account.user.type,
+      accountCollection: account.accountCollection,
+    });
+    return {
+      ...account.user.toJSON(),
+      accessToken,
+      accountCollection: account.accountCollection,
+    };
   }
 
   @Get()
