@@ -13,8 +13,10 @@ import {
   HttpStatus,
   UseInterceptors,
   UploadedFile,
+  Res,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { Response } from 'express';
 import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiQuery, ApiConsumes, ApiBody } from '@nestjs/swagger';
 import { UsersService } from './users.service';
 import { CreateUserFirstDto, CreateUserSecondDto, UpdateUserDto, UpdateOccupiedDatesDto, UpdateUserStatusDto, UserQueryDto, LoginDto, VerifyOtpDto } from './dto/user.dto';
@@ -88,22 +90,26 @@ export class UsersController {
   @Post('login')
   @ApiOperation({ summary: 'User login' })
   @ApiResponse({ status: 200, description: 'Login successful', type: User })
-  @ApiResponse({ status: 401, description: 'Invalid credentials' })
+  @ApiResponse({ status: 400, description: 'Invalid credentials' })
   @UsePipes(new ValidationPipe({ transform: true }))
-  async login(@Body() loginDto: LoginDto): Promise<Record<string, unknown> | null> {
+  async login(@Body() loginDto: LoginDto, @Res() res: Response): Promise<void> {
     const account = await this.usersService.validateUser(loginDto);
-    if (!account) return null;
+    if (!account.success) {
+      res.status(HttpStatus.BAD_REQUEST).json({ message: account.message });
+      return;
+    }
 
     const accessToken = await this.jwtService.signAsync({
-      sub: String(account.user._id),
-      type: account.user.type,
+      sub: String(account?.user?._id),
+      type: account?.user?.type,
       accountCollection: account.accountCollection,
     });
-    return {
-      ...account.user.toJSON(),
+    res.json({
+      ...account?.user?.toJSON(),
       accessToken,
       accountCollection: account.accountCollection,
-    };
+      message: account.message
+    });
   }
 
   @Get()

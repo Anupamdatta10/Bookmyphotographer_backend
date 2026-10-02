@@ -407,16 +407,20 @@ export class UsersService {
   }
 
   async validateUser(loginDto: LoginDto): Promise<{
-    user: UserDocument | AdminDocument;
-    accountCollection: 'users' | 'admins';
-  } | null> {
+    success: boolean;
+    message?: string;
+    user?: UserDocument | AdminDocument;
+    accountCollection?: 'users' | 'admins';
+  }> {
     const user = await this.findByEmailWithPassword(loginDto.email);
     if (user) {
       const isPasswordValid = await bcrypt.compare(loginDto.password, user.password);
-      if (!isPasswordValid) return null;
+      if (!isPasswordValid) {
+        return { success: false, message: 'invalid credentials' };
+      }
 
       await this.userModel.findByIdAndUpdate(user._id, { lastLoginAt: new Date() }).exec();
-      return { user, accountCollection: 'users' };
+      return { success: true, user, accountCollection: 'users' };
     }
 
     const admin = await this.adminModel
@@ -424,11 +428,11 @@ export class UsersService {
       .select('+password')
       .exec();
     if (!admin || !(await bcrypt.compare(loginDto.password, admin.password))) {
-      return null;
+      return { success: false, message: 'invalid credentials' };
     }
 
     await this.adminModel.findByIdAndUpdate(admin._id, { lastLoginAt: new Date() }).exec();
-    return { user: admin, accountCollection: 'admins' };
+    return { success: true, user: admin, accountCollection: 'admins' };
   }
 
   async getStats(): Promise<{

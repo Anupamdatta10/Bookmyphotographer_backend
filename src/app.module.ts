@@ -2,19 +2,15 @@ import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
 import { JwtModule } from '@nestjs/jwt';
-import { PhotographersModule } from './photographers/photographers.module';
 import { BookingsModule } from './bookings/bookings.module';
 import { UsersModule } from './users/users.module';
-import { TagsModule } from './tags/tags.module';
-import { TagUserRelationsModule } from './tag-user-relations/tag-user-relations.module';
 import { ReviewsModule } from './reviews/reviews.module';
 import { AvailabilitiesModule } from './availabilities/availabilities.module';
 import { PhotoGalleriesModule } from './photo-galleries/photo-galleries.module';
-import { SocialMediaLinksModule } from './social-media-links/social-media-links.module';
 import { CommonModule } from './common/common.module';
 import { PartnerCompaniesModule } from './partner-companies/partner-companies.module';
 import { AdminsModule } from './admins/admins.module';
-
+import {PhotographersModule} from './photographers/photographers.module'
 @Module({
   imports: [
     // Configuration module
@@ -46,18 +42,15 @@ import { AdminsModule } from './admins/admins.module';
     }),
 
     // Feature modules
-    PhotographersModule,
     BookingsModule,
     UsersModule,
-    TagsModule,
-    TagUserRelationsModule,
     ReviewsModule,
     AvailabilitiesModule,
     PhotoGalleriesModule,
-    SocialMediaLinksModule,
     PartnerCompaniesModule,
     AdminsModule,
     CommonModule,
+    PhotographersModule
   ],
 })
 export class AppModule {}
