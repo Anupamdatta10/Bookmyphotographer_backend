@@ -10,7 +10,8 @@ import { PhotoGalleriesModule } from './photo-galleries/photo-galleries.module';
 import { CommonModule } from './common/common.module';
 import { PartnerCompaniesModule } from './partner-companies/partner-companies.module';
 import { AdminsModule } from './admins/admins.module';
-import {PhotographersModule} from './photographers/photographers.module'
+import { PhotographersModule } from './photographers/photographers.module';
+import { HeroImgsModule } from './hero-imgs/hero-imgs.module';
 @Module({
   imports: [
     // Configuration module
@@ -50,7 +51,8 @@ import {PhotographersModule} from './photographers/photographers.module'
     PartnerCompaniesModule,
     AdminsModule,
     CommonModule,
-    PhotographersModule
+    PhotographersModule,
+    HeroImgsModule
   ],
 })
 export class AppModule {}

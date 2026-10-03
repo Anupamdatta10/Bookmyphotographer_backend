@@ -47,22 +47,34 @@ export class FileUploadService {
 
   async deleteFile(publicUrl: string): Promise<void> {
     try {
-      // Extract filename from public URL
-      const filename = publicUrl.split('/').pop();
+      if (!publicUrl) return;
+
+      const normalizedUrl = publicUrl.split('?')[0];
+      const pathname = normalizedUrl.startsWith('http')
+        ? new URL(normalizedUrl).pathname
+        : normalizedUrl;
+
+      const pathParts = pathname.replace(/^\/+/, '').split('/');
+      const filename = pathParts.pop();
       if (!filename) return;
 
-      // Try to find and delete the file
-      const possiblePaths = [
+      const possiblePaths = new Set<string>([
         join(this.uploadPath, filename),
         join(this.uploadPath, 'profiles', filename),
         join(this.uploadPath, 'galleries', filename),
-      ];
+        join(this.uploadPath, 'hero_imgs', filename),
+      ]);
+
+      if (pathParts.length > 0) {
+        const folder = pathParts[pathParts.length - 1];
+        possiblePaths.add(join(this.uploadPath, folder, filename));
+      }
 
       for (const filePath of possiblePaths) {
         if (existsSync(filePath)) {
           const { unlinkSync } = await import('fs');
           unlinkSync(filePath);
-          break;
+          return;
         }
       }
     } catch (error) {
