@@ -3,12 +3,14 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { PhotoGalleriesController } from './photo-galleries.controller';
 import { PhotoGalleriesService } from './photo-galleries.service';
 import { PhotoGallery, PhotoGallerySchema } from '../schemas/photo-gallery.schema';
+import { User, UserSchema } from '../schemas/user.schema';
 import { CommonModule } from '../common/common.module';
 
 @Module({
   imports: [
     MongooseModule.forFeature([
       { name: PhotoGallery.name, schema: PhotoGallerySchema },
+      { name: User.name, schema: UserSchema },
     ]),
     CommonModule,
   ],

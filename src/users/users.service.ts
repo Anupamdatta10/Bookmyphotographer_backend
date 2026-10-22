@@ -267,6 +267,43 @@ export class UsersService {
       ),
     );
 
+    if (Object.prototype.hasOwnProperty.call(updateData, 'dob')) {
+      if (updateData.dob === null) {
+        updateData.age = null;
+      } else {
+        const dob = new Date(String(updateData.dob));
+        if (Number.isNaN(dob.getTime())) {
+          throw new BadRequestException('Invalid date of birth');
+        }
+
+        const birthDate = Date.UTC(
+          dob.getUTCFullYear(),
+          dob.getUTCMonth(),
+          dob.getUTCDate(),
+        );
+        const today = new Date();
+        const todayDate = Date.UTC(
+          today.getUTCFullYear(),
+          today.getUTCMonth(),
+          today.getUTCDate(),
+        );
+        if (birthDate > todayDate) {
+          throw new BadRequestException('Date of birth cannot be in the future');
+        }
+
+        let age = today.getUTCFullYear() - dob.getUTCFullYear();
+        if (
+          today.getUTCMonth() < dob.getUTCMonth() ||
+          (today.getUTCMonth() === dob.getUTCMonth() &&
+            today.getUTCDate() < dob.getUTCDate())
+        ) {
+          age -= 1;
+        }
+        updateData.dob = dob;
+        updateData.age = age;
+      }
+    }
+
     if (typeof updateData.email === 'string') {
       updateData.email = updateData.email.toLowerCase();
       const existingUser = await this.userModel.findOne({

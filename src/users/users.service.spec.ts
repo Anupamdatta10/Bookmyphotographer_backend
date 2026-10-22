@@ -88,6 +88,68 @@ describe('UsersService registration flow', () => {
     expect(updateQuery.select).toHaveBeenCalledWith('-password');
   });
 
+  it('calculates and stores age when a date of birth is updated', async () => {
+    const userId = '65a000000000000000000003';
+    const today = new Date();
+    const expectedAge =
+      today.getUTCFullYear() -
+      2000 -
+      (today.getUTCMonth() < 11 ||
+      (today.getUTCMonth() === 11 && today.getUTCDate() < 31)
+        ? 1
+        : 0);
+    const updatedUser = {
+      _id: userId,
+      dob: new Date('2000-12-31'),
+      age: expectedAge,
+    };
+    const updateQuery = {
+      select: jest.fn().mockReturnThis(),
+      exec: jest.fn().mockResolvedValue(updatedUser),
+    };
+    userModel.findOneAndUpdate.mockReturnValue(updateQuery);
+
+    await service.update(userId, { dob: '2000-12-31' });
+
+    expect(userModel.findOneAndUpdate).toHaveBeenCalledWith(
+      { _id: userId, deletedAt: { $exists: false } },
+      {
+        $set: {
+          dob: new Date('2000-12-31'),
+          age: expectedAge,
+        },
+      },
+      { new: true, runValidators: true },
+    );
+  });
+
+  it('clears the stored age when the date of birth is removed', async () => {
+    const userId = '65a000000000000000000004';
+    const updateQuery = {
+      select: jest.fn().mockReturnThis(),
+      exec: jest.fn().mockResolvedValue({ _id: userId, dob: null, age: null }),
+    };
+    userModel.findOneAndUpdate.mockReturnValue(updateQuery);
+
+    await service.update(userId, { dob: null });
+
+    expect(userModel.findOneAndUpdate).toHaveBeenCalledWith(
+      { _id: userId, deletedAt: { $exists: false } },
+      { $set: { dob: null, age: null } },
+      { new: true, runValidators: true },
+    );
+  });
+
+  it('rejects a future date of birth', async () => {
+    const userId = '65a000000000000000000005';
+
+    await expect(
+      service.update(userId, { dob: '2999-01-01' }),
+    ).rejects.toThrow('Date of birth cannot be in the future');
+
+    expect(userModel.findOneAndUpdate).not.toHaveBeenCalled();
+  });
+
   it('replaces a user occupied-date list with stored Date values', async () => {
     const userId = '65a000000000000000000001';
     const occupiedDates = ['2026-10-05T00:00:00.000Z'];

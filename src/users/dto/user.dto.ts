@@ -239,7 +239,7 @@ export class UpdateUserDto {
   @ApiPropertyOptional({ example: '1990-01-31', type: String })
   @IsOptional()
   @IsDateString()
-  dob?: string;
+  dob?: string | null;
 
   @ApiPropertyOptional({
     example: { type: 'Point', coordinates: [-122.4194, 37.7749] },

@@ -83,7 +83,10 @@ export class User {
   
 
   @Prop({ type: Date })
-  dob: Date;
+  dob: Date | null;
+
+  @Prop({ type: Number, default: null, min: 0 })
+  age: number | null;
 
 
   @Prop({

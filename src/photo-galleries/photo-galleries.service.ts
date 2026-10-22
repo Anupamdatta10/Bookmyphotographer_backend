@@ -2,17 +2,25 @@ import { Injectable, NotFoundException, BadRequestException } from '@nestjs/comm
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types, FilterQuery } from 'mongoose';
 import { PhotoGallery, PhotoGalleryDocument } from '../schemas/photo-gallery.schema';
+import { User, UserDocument, UserRole } from '../schemas/user.schema';
 import { CreatePhotoGalleryDto, UpdatePhotoGalleryDto, PhotoGalleryQueryDto } from './dto/photo-gallery.dto';
-import { FileUploadService } from '@/common/services/file-upload.service';
+import { FileUploadService } from '../common/services/file-upload.service';
+
+const MAX_PHOTOGRAPHER_PORTFOLIO_PHOTOS = 5;
 
 @Injectable()
 export class PhotoGalleriesService {
   constructor(
     @InjectModel(PhotoGallery.name) private photoGalleryModel: Model<PhotoGalleryDocument>,
+    @InjectModel(User.name) private userModel: Model<UserDocument>,
     private fileUploadService: FileUploadService,
   ) {}
 
   async create(createDto: CreatePhotoGalleryDto, file?: Express.Multer.File): Promise<PhotoGalleryDocument> {
+    if (!createDto.isProfileImage) {
+      await this.assertPortfolioPhotoLimit(createDto.userId);
+    }
+
     // If this is set as profile image, unset other profile images for this user
     if (createDto.isProfileImage) {
       await this.photoGalleryModel.updateMany(
@@ -127,6 +135,13 @@ export class PhotoGalleriesService {
       throw new BadRequestException('Invalid photo gallery ID');
     }
 
+    const currentPhoto = await this.photoGalleryModel
+      .findOne({ _id: id, deletedAt: { $exists: false } })
+      .exec();
+    if (!currentPhoto) {
+      throw new NotFoundException(`Photo gallery with ID ${id} not found`);
+    }
+
     const updateData: Record<string, unknown> = { ...updateDto };
     if (updateDto.userId) {
       if (!Types.ObjectId.isValid(updateDto.userId)) {
@@ -135,23 +150,29 @@ export class PhotoGalleriesService {
       updateData.userId = new Types.ObjectId(updateDto.userId);
     }
 
+    const nextUserId = updateDto.userId || currentPhoto.userId.toString();
+    const nextIsProfileImage =
+      updateDto.isProfileImage ?? currentPhoto.isProfileImage;
+    if (
+      !nextIsProfileImage &&
+      (currentPhoto.isProfileImage || nextUserId !== currentPhoto.userId.toString())
+    ) {
+      await this.assertPortfolioPhotoLimit(nextUserId, id);
+    }
+
     // If this is being set as profile image, unset other profile images for this user
     if (updateDto.isProfileImage) {
-      const photo = await this.photoGalleryModel.findById(id).exec();
-      if (photo) {
-        await this.photoGalleryModel.updateMany(
-          { userId: photo.userId, isProfileImage: true, _id: { $ne: id }, deletedAt: { $exists: false } },
-          { isProfileImage: false }
-        ).exec();
-      }
+      await this.photoGalleryModel.updateMany(
+        { userId: currentPhoto.userId, isProfileImage: true, _id: { $ne: id }, deletedAt: { $exists: false } },
+        { isProfileImage: false }
+      ).exec();
     }
 
     // Upload new file if provided
     if (file) {
       // Delete old file if exists
-      const oldPhoto = await this.photoGalleryModel.findById(id).exec();
-      if (oldPhoto?.link) {
-        await this.fileUploadService.deleteFile(oldPhoto.link);
+      if (currentPhoto.link) {
+        await this.fileUploadService.deleteFile(currentPhoto.link);
       }
       updateData.link = await this.fileUploadService.uploadFile(file, 'galleries');
     }
@@ -166,6 +187,27 @@ export class PhotoGalleriesService {
     }
 
     return updatedPhoto;
+  }
+
+  private async assertPortfolioPhotoLimit(userId: string, excludedPhotoId?: string): Promise<void> {
+    const user = await this.userModel.findById(userId).select('type').exec();
+    if (user?.type !== UserRole.PHOTOGRAPHER) return;
+
+    const filter: FilterQuery<PhotoGalleryDocument> = {
+      userId: new Types.ObjectId(userId),
+      isProfileImage: { $ne: true },
+      deletedAt: { $exists: false },
+    };
+    if (excludedPhotoId) {
+      filter._id = { $ne: new Types.ObjectId(excludedPhotoId) };
+    }
+
+    const photoCount = await this.photoGalleryModel.countDocuments(filter).exec();
+    if (photoCount >= MAX_PHOTOGRAPHER_PORTFOLIO_PHOTOS) {
+      throw new BadRequestException(
+        `Photographers can upload up to ${MAX_PHOTOGRAPHER_PORTFOLIO_PHOTOS} portfolio photos.`,
+      );
+    }
   }
 
   async remove(id: string): Promise<void> {

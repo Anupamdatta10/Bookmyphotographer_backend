@@ -153,6 +153,12 @@ export class UsersController {
         country: { type: 'string', example: 'USA' },
         address1: { type: 'string', example: '123 Main St' },
         address2: { type: 'string', example: 'Apt 4B' },
+        dob: { type: 'string', format: 'date', example: '1990-01-31' },
+        age: {
+          type: 'integer',
+          readOnly: true,
+          description: 'Calculated from the date of birth.',
+        },
         isActive: { type: 'boolean', example: true },
       },
     },

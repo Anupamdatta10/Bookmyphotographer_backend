@@ -20,6 +20,7 @@ import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiQuery, ApiConsumes, Ap
 import { PhotoGalleriesService } from './photo-galleries.service';
 import { CreatePhotoGalleryDto, UpdatePhotoGalleryDto, PhotoGalleryQueryDto } from './dto/photo-gallery.dto';
 import { PhotoGallery } from '../schemas/photo-gallery.schema';
+import { MAX_IMAGE_FILE_SIZE } from '../common/services/file-upload.service';
 
 @ApiTags('photo-galleries')
 @Controller('photo-galleries')
@@ -44,7 +45,7 @@ export class PhotoGalleriesController {
   })
   @ApiResponse({ status: 201, description: 'Photo gallery created successfully', type: PhotoGallery })
   @ApiResponse({ status: 400, description: 'Bad request - validation error' })
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: MAX_IMAGE_FILE_SIZE } }))
   @UsePipes(new ValidationPipe({ transform: true }))
   async create(
     @Body() createDto: CreatePhotoGalleryDto,
@@ -110,7 +111,7 @@ export class PhotoGalleriesController {
   @ApiResponse({ status: 200, description: 'Photo gallery updated successfully', type: PhotoGallery })
   @ApiResponse({ status: 404, description: 'Photo gallery not found' })
   @ApiResponse({ status: 400, description: 'Invalid ID format' })
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: MAX_IMAGE_FILE_SIZE } }))
   @UsePipes(new ValidationPipe({ transform: true }))
   async update(
     @Param('id') id: string,

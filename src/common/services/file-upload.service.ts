@@ -2,11 +2,13 @@ import { Injectable, BadRequestException } from '@nestjs/common';
 import { join } from 'path';
 import { existsSync, mkdirSync } from 'fs';
 
+export const MAX_IMAGE_FILE_SIZE = 5 * 1024 * 1024;
+
 @Injectable()
 export class FileUploadService {
   private readonly uploadPath = join(process.cwd(), 'public', 'uploads');
   private readonly allowedMimeTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
-  private readonly maxFileSize = 5 * 1024 * 1024; // 5MB
+  private readonly maxFileSize = MAX_IMAGE_FILE_SIZE;
 
   constructor() {
     // Ensure upload directory exists
