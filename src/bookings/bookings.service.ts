@@ -19,40 +19,43 @@ export class BookingsService {
       throw new BadRequestException('Invalid user ID');
     }
 
-    // Check for conflicting bookings (same photographer, same date/time)
-    const eventDate = new Date(createBookingDto.eventDate);
-    const durationHours = createBookingDto.durationHours || 1;
-    const endDate = new Date(eventDate.getTime() + durationHours * 60 * 60 * 1000);
+      // Check for conflicting bookings (same photographer, same date/time) for each event date
+      const durationHours = createBookingDto.durationHours || 1;
+    
+      for (const eventDate of createBookingDto.eventDate) {
+        const date = new Date(eventDate);
+        const endDate = new Date(date.getTime() + durationHours * 60 * 60 * 1000);
 
-    const conflictingBooking = await this.bookingModel.findOne({
-      photographerId: createBookingDto.photographerId,
-      status: { $in: [BookingStatus.PENDING, BookingStatus.CONFIRMED, BookingStatus.IN_PROGRESS] },
-      deletedAt: { $exists: false },
-      $or: [
-        { eventDate: { $lt: endDate, $gte: eventDate } },
-        {
-          $expr: {
-            $lt: [
-              { $add: ['$eventDate', { $multiply: ['$durationHours', 3600000] }] },
-              endDate,
-            ],
-          },
-        },
-      ],
-    }).exec();
+        const conflictingBooking = await this.bookingModel.findOne({
+          photographerId: createBookingDto.photographerId,
+          status: { $in: [BookingStatus.PENDING, BookingStatus.CONFIRMED, BookingStatus.IN_PROGRESS] },
+          deletedAt: { $exists: false },
+          $or: [
+            { eventDate: { $elemMatch: { $lt: endDate, $gte: date } } },
+            {
+              $expr: {
+                $lt: [
+                  { $add: ['$eventDate', { $multiply: ['$durationHours', 3600000] }] },
+                  endDate,
+                ],
+              },
+            },
+          ],
+        }).exec();
 
-    if (conflictingBooking) {
-      throw new ConflictException('Photographer is not available at the requested time');
+        if (conflictingBooking) {
+          throw new ConflictException(`Photographer is not available at the requested time on ${date.toISOString()}`);
+        }
+      }
+
+      const createdBooking = new this.bookingModel({
+        ...createBookingDto,
+        photographerId: new Types.ObjectId(createBookingDto.photographerId),
+        userId: new Types.ObjectId(createBookingDto.userId),
+      });
+
+      return createdBooking.save();
     }
-
-    const createdBooking = new this.bookingModel({
-      ...createBookingDto,
-      photographerId: new Types.ObjectId(createBookingDto.photographerId),
-      userId: new Types.ObjectId(createBookingDto.userId),
-    });
-
-    return createdBooking.save();
-  }
 
   async findAll(queryDto: BookingQueryDto): Promise<{ data: BookingDocument[]; total: number; page: number; limit: number }> {
     const {
@@ -89,9 +92,9 @@ export class BookingsService {
     }
 
     if (startDate || endDate) {
-      filter.eventDate = {};
-      if (startDate) filter.eventDate.$gte = startDate;
-      if (endDate) filter.eventDate.$lte = endDate;
+          filter.eventDate = { $elemMatch: {} };
+          if (startDate) filter.eventDate.$elemMatch.$gte = startDate;
+          if (endDate) filter.eventDate.$elemMatch.$lte = endDate;
     }
 
     // Exclude soft deleted
@@ -183,32 +186,36 @@ export class BookingsService {
       }
 
       const photographerId = updateBookingDto.photographerId || booking.photographerId.toString();
-      const eventDate = updateBookingDto.eventDate ? new Date(updateBookingDto.eventDate) : booking.eventDate;
+          const eventDates = updateBookingDto.eventDate ? updateBookingDto.eventDate.map(d => new Date(d)) : booking.eventDate;
       const durationHours = updateBookingDto.durationHours || booking.durationHours;
-      const endDate = new Date(eventDate.getTime() + durationHours * 60 * 60 * 1000);
 
-      const conflictingBooking = await this.bookingModel.findOne({
-        _id: { $ne: id },
-        photographerId: new Types.ObjectId(photographerId),
-        status: { $in: [BookingStatus.PENDING, BookingStatus.CONFIRMED, BookingStatus.IN_PROGRESS] },
-        deletedAt: { $exists: false },
-        $or: [
-          { eventDate: { $lt: endDate, $gte: eventDate } },
-          {
-            $expr: {
-              $lt: [
-                { $add: ['$eventDate', { $multiply: ['$durationHours', 3600000] }] },
-                endDate,
+          // Check each event date for conflicts
+          for (const eventDate of eventDates) {
+            const endDate = new Date(eventDate.getTime() + durationHours * 60 * 60 * 1000);
+
+            const conflictingBooking = await this.bookingModel.findOne({
+              _id: { $ne: id },
+              photographerId: new Types.ObjectId(photographerId),
+              status: { $in: [BookingStatus.PENDING, BookingStatus.CONFIRMED, BookingStatus.IN_PROGRESS] },
+              deletedAt: { $exists: false },
+              $or: [
+                { eventDate: { $elemMatch: { $lt: endDate, $gte: eventDate } } },
+                {
+                  $expr: {
+                    $lt: [
+                      { $add: ['$eventDate', { $multiply: ['$durationHours', 3600000] }] },
+                      endDate,
+                    ],
+                  },
+                },
               ],
-            },
-          },
-        ],
-      }).exec();
+            }).exec();
 
-      if (conflictingBooking) {
-        throw new ConflictException('Photographer is not available at the requested time');
-      }
-    }
+            if (conflictingBooking) {
+              throw new ConflictException(`Photographer is not available at the requested time on ${eventDate.toISOString()}`);
+            }
+          }
+        }
 
     const updatedBooking = await this.bookingModel
       .findOneAndUpdate({ _id: id, deletedAt: { $exists: false } }, updateData, { new: true, runValidators: true })
@@ -293,7 +300,7 @@ export class BookingsService {
     return this.bookingModel
       .find({
         photographerId: new Types.ObjectId(photographerId),
-        eventDate: { $gte: new Date() },
+          eventDate: { $elemMatch: { $gte: new Date() } },
         status: { $in: [BookingStatus.PENDING, BookingStatus.CONFIRMED] },
         deletedAt: { $exists: false },
       })

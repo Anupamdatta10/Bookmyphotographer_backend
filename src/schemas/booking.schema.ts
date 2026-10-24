@@ -19,8 +19,8 @@ export class Booking {
   @Prop({ type: Types.ObjectId, ref: 'User', required: true })
   userId: Types.ObjectId;
 
-  @Prop({ required: true })
-  eventDate: Date;
+  @Prop({ type: [Date], required: true })
+    eventDate: Date[];
 
   @Prop({ required: true, trim: true })
   eventLocation: string;

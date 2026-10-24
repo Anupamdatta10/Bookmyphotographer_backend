@@ -72,6 +72,10 @@ export class CreateUserFirstDto {
   @MinLength(8)
   @MaxLength(50)
   password: string;
+
+  @ApiProperty({ enum: UserRole, example: UserRole.PARTNER })
+  @IsEnum(UserRole)
+  type: UserRole;
 }
 
 export class CreateUserSecondDto {
@@ -93,6 +97,11 @@ export class CreateUserSecondDto {
   @IsOptional()
   @IsString()
   city?: string;
+
+  @ApiPropertyOptional({ example: 'California' })
+  @IsOptional()
+  @IsString()
+  district?: string;
 
   @ApiPropertyOptional({ example: 'USA' })
   @IsOptional()

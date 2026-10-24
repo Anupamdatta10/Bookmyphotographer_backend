@@ -37,7 +37,7 @@ db.createCollection('bookings', {
       properties: {
         photographerId: { bsonType: 'objectId' },
         userId: { bsonType: 'objectId' },
-        eventDate: { bsonType: 'date' },
+        eventDate: { bsonType: 'array', items: { bsonType: 'date' } },
         eventLocation: { bsonType: 'string', minLength: 5, maxLength: 200 },
         status: { enum: ['pending', 'confirmed', 'in_progress', 'completed', 'cancelled'] },
         durationHours: { bsonType: 'int', minimum: 1 },

@@ -17,6 +17,9 @@ export class RegistrationOtp {
   @Prop({ required: true, select: false })
   passwordHash: string;
 
+  @Prop({required:true,trim:true})
+  type:string
+
   @Prop({ required: true })
   expiresAt: Date;
 }

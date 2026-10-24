@@ -43,6 +43,9 @@ export class User {
   city: string | null;
 
   @Prop({ type: String, default: '' })
+  district: string|null;
+
+  @Prop({ type: String, default: '' })
   address1: string | null;
 
   @Prop({ type: String, default: '' })

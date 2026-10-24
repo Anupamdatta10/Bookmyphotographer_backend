@@ -12,10 +12,10 @@ export class CreateBookingDto {
   @IsMongoId()
   userId: string;
 
-  @ApiProperty({ example: '2024-06-15T10:00:00.000Z' })
+  @ApiProperty({ example: ['2024-06-15T10:00:00.000Z', '2024-06-16T10:00:00.000Z'] })
   @Type(() => Date)
-  @IsDate()
-  eventDate: Date;
+    @IsDate({ each: true })
+    eventDate: Date[];
 
   @ApiProperty({ example: '123 Main St, City, State' })
   @IsString()
@@ -52,11 +52,11 @@ export class UpdateBookingDto {
   @IsMongoId()
   photographerId?: string;
 
-  @ApiPropertyOptional({ example: '2024-06-15T10:00:00.000Z' })
+  @ApiPropertyOptional({ example: ['2024-06-15T10:00:00.000Z', '2024-06-16T10:00:00.000Z'] })
   @IsOptional()
   @Type(() => Date)
-  @IsDate()
-  eventDate?: Date;
+    @IsDate({ each: true })
+    eventDate?: Date[];
 
   @ApiPropertyOptional({ example: '123 Main St, City, State' })
   @IsOptional()

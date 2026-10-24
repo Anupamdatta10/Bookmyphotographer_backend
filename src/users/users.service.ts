@@ -23,6 +23,7 @@ export class UsersService {
 
   async sendRegistrationOtp(createUserFirstDto: CreateUserFirstDto): Promise<{ message: string }> {
     const email = createUserFirstDto.email.toLowerCase();
+    const type = createUserFirstDto.type;
     const existingUser = await this.userModel.findOne({ email, deletedAt: { $exists: false } }).exec();
     if (existingUser) {
       throw new ConflictException('User with this email already exists');
@@ -33,7 +34,7 @@ export class UsersService {
     const passwordHash = await bcrypt.hash(createUserFirstDto.password, 12);
     await this.registrationOtpModel.findOneAndUpdate(
       { email },
-      { otp, name: createUserFirstDto.name, passwordHash, expiresAt },
+      { otp, name: createUserFirstDto.name, type,passwordHash, expiresAt },
       { upsert: true, new: true, setDefaultsOnInsert: true },
     ).exec();
 
@@ -80,7 +81,7 @@ export class UsersService {
     return { message: 'Request received. Verification email sent.' };
   }
 
-  async verifyRegistrationOtp(email: string, otp: string): Promise<{ message: string }> {
+  async verifyRegistrationOtp(email: string, otp: string): Promise<{ message: string,data:any }> {
     const record = await this.registrationOtpModel.findOne({
       email: email.toLowerCase(),
       otp,
@@ -95,10 +96,12 @@ export class UsersService {
       name: record.name,
       email: record.email,
       password: record.passwordHash,
+      type: record.type
     });
     await user.save();
     await this.registrationOtpModel.deleteOne({ _id: record._id }).exec();
-    return { message: 'Email verified successfully' };
+    return { message: 'Email verified successfully', data:{ name: record.name,
+      email: record.email, type: record.type} };
   }
 
   private generateOtp(): string {
@@ -120,6 +123,7 @@ export class UsersService {
       ...(createUserSecondDto.type ? { type: createUserSecondDto.type } : {}),
       phone: createUserSecondDto.phone ?? null,
       city: createUserSecondDto.city ?? null,
+      district: createUserSecondDto.district ?? null,
       country: createUserSecondDto.country ?? null,
       state: createUserSecondDto.state ?? null,
       address1: createUserSecondDto.address1 ?? null,

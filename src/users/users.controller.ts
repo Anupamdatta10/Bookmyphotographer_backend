@@ -66,6 +66,7 @@ export class UsersController {
         city: { type: 'string' },
         country: { type: 'string' },
         state: { type: 'string' },
+        district: { type: 'string' },
         address1: { type: 'string' },
         address2: { type: 'string' },
         latitude: { type: 'number' },
@@ -83,7 +84,6 @@ export class UsersController {
     @Body() createUserSecondDto: CreateUserSecondDto,
     @UploadedFile() file?: Express.Multer.File,
   ) {
-    console.log('Second endpoint data:', createUserSecondDto);
     return this.usersService.createSecondStep(createUserSecondDto, file);
   }             
 
