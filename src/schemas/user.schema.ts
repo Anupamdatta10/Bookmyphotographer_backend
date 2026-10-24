@@ -54,6 +54,12 @@ export class User {
   @Prop({ type: String, default: '' })
   profileImageUrl: string | null;
 
+  @Prop({ type: String, default: '' })
+  profileVideoUrl: string | null;
+
+  @Prop({ type: [String], default: [] })
+  profileVideoUrls: string[];
+
   @Prop({ type: [String], default: [] })
   specialties: string[];
 
@@ -65,9 +71,6 @@ export class User {
 
   @Prop({ type: Number, default: 0, min: 0 })
   experienceYears: number;
-
-  @Prop({ type: String, default: '' })
-  portfolioUrl: string;
 
   @Prop({ type: String, default: '' })
   proffession: string;

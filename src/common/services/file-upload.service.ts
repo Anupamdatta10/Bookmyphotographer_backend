@@ -1,13 +1,31 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
+import { randomUUID } from 'crypto';
 import { join } from 'path';
 import { existsSync, mkdirSync } from 'fs';
 
 export const MAX_IMAGE_FILE_SIZE = 5 * 1024 * 1024;
+export const MAX_VIDEO_FILE_SIZE = 15 * 1024 * 1024;
 
 @Injectable()
 export class FileUploadService {
   private readonly uploadPath = join(process.cwd(), 'public', 'uploads');
   private readonly allowedMimeTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+  private readonly allowedVideoMimeTypes = [
+    'video/mp4',
+    'video/webm',
+    'video/quicktime',
+    'video/x-msvideo',
+    'video/ogg',
+    'video/x-matroska',
+  ];
+  private readonly videoExtensions: Record<string, string> = {
+    'video/mp4': '.mp4',
+    'video/webm': '.webm',
+    'video/quicktime': '.mov',
+    'video/x-msvideo': '.avi',
+    'video/ogg': '.ogv',
+    'video/x-matroska': '.mkv',
+  };
   private readonly maxFileSize = MAX_IMAGE_FILE_SIZE;
 
   constructor() {
@@ -18,28 +36,18 @@ export class FileUploadService {
   }
 
   async uploadFile(file: Express.Multer.File, subfolder: string = ''): Promise<string> {
-    // Validate file
     this.validateFile(file);
 
-    // Create subfolder if specified
-    const targetPath = subfolder ? join(this.uploadPath, subfolder) : this.uploadPath;
-    if (!existsSync(targetPath)) {
-      mkdirSync(targetPath, { recursive: true });
-    }
+    return this.saveUploadedFile(file, subfolder);
+  }
 
-    // Generate unique filename
-    const timestamp = Date.now();
-    const randomSuffix = Math.round(Math.random() * 1e9);
-    const extension = this.getExtension(file.originalname);
-    const filename = `${timestamp}-${randomSuffix}${extension}`;
-
-    // Save file
-    const filePath = join(targetPath, filename);
-    await this.saveFile(file, filePath);
-
-    // Return public URL
-    const publicPath = subfolder ? `/public/uploads/${subfolder}/${filename}` : `/public/uploads/${filename}`;
-    return publicPath;
+  async uploadVideoFile(file: Express.Multer.File): Promise<string> {
+    this.validateVideoFile(file);
+    return this.saveUploadedFile(
+      file,
+      'videos',
+      this.videoExtensions[file.mimetype],
+    );
   }
 
   async uploadMultipleFiles(files: Express.Multer.File[], subfolder: string = ''): Promise<string[]> {
@@ -101,6 +109,43 @@ export class FileUploadService {
         `File too large. Maximum size: ${this.maxFileSize / (1024 * 1024)}MB`
       );
     }
+  }
+
+  private validateVideoFile(file: Express.Multer.File): void {
+    if (!file) {
+      throw new BadRequestException('No video file provided');
+    }
+
+    if (!this.allowedVideoMimeTypes.includes(file.mimetype)) {
+      throw new BadRequestException(
+        `Invalid video type. Allowed types: ${this.allowedVideoMimeTypes.join(', ')}`,
+      );
+    }
+
+    if (file.size > MAX_VIDEO_FILE_SIZE) {
+      throw new BadRequestException(
+        `Video too large. Maximum size: ${MAX_VIDEO_FILE_SIZE / (1024 * 1024)}MB`,
+      );
+    }
+  }
+
+  private async saveUploadedFile(
+    file: Express.Multer.File,
+    subfolder: string,
+    fileExtension?: string,
+  ): Promise<string> {
+    const targetPath = subfolder ? join(this.uploadPath, subfolder) : this.uploadPath;
+    if (!existsSync(targetPath)) {
+      mkdirSync(targetPath, { recursive: true });
+    }
+
+    const extension = fileExtension ?? this.getExtension(file.originalname);
+    const filename = `${randomUUID()}${extension}`;
+    await this.saveFile(file, join(targetPath, filename));
+
+    return subfolder
+      ? `/public/uploads/${subfolder}/${filename}`
+      : `/public/uploads/${filename}`;
   }
 
   private getExtension(filename: string): string {

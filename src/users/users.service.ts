@@ -10,6 +10,8 @@ import { Admin, AdminDocument } from '../schemas/admin.schema';
 import { RegistrationOtp, RegistrationOtpDocument } from '../schemas/registration-otp.schema';
 import { CreateUserDto, CreateUserFirstDto, CreateUserSecondDto, UpdateUserDto, UpdateOccupiedDatesDto, UserQueryDto, LoginDto } from './dto/user.dto';
 import { FileUploadService } from '../common/services/file-upload.service';
+import { ProfileVideo, ProfileVideoDocument } from '../schemas/profile-video.schema';
+import { basename } from 'path';
 
 @Injectable()
 export class UsersService {
@@ -18,6 +20,7 @@ export class UsersService {
     @InjectModel(Admin.name) private adminModel: Model<AdminDocument>,
     @InjectModel(RegistrationOtp.name) private registrationOtpModel: Model<RegistrationOtpDocument>,
     private fileUploadService: FileUploadService,
+    @InjectModel(ProfileVideo.name) private profileVideoModel: Model<ProfileVideoDocument>,
     private configService: ConfigService,
   ) { }
 
@@ -381,6 +384,169 @@ export class UsersService {
     return updatedUser;
   }
 
+  async removeProfilePicture(id: string): Promise<void> {
+    if (!Types.ObjectId.isValid(id)) {
+      throw new BadRequestException('Invalid user ID');
+    }
+
+    const user = await this.userModel
+      .findOneAndUpdate(
+        { _id: id, deletedAt: { $exists: false } },
+        { $set: { profileImageUrl: '' } },
+        { new: false, runValidators: true },
+      )
+      .exec();
+    if (!user) {
+      throw new NotFoundException(`User with ID ${id} not found`);
+    }
+    if (user.profileImageUrl) {
+      await this.fileUploadService.deleteFile(user.profileImageUrl);
+    }
+  }
+
+  async updateProfileVideo(
+    id: string,
+    slot: number,
+    file?: Express.Multer.File,
+  ): Promise<ProfileVideoDocument> {
+    if (!Types.ObjectId.isValid(id)) {
+      throw new BadRequestException('Invalid photographer ID');
+    }
+    if (!Number.isInteger(slot) || slot < 0 || slot > 1) {
+      throw new BadRequestException('Video slot must be 0 or 1');
+    }
+    if (!file) {
+      throw new BadRequestException('Profile video file is required');
+    }
+
+    const user = await this.userModel
+      .findOne({
+        _id: id,
+        type: UserRole.PHOTOGRAPHER,
+        deletedAt: { $exists: false },
+      })
+      .exec();
+    if (!user) {
+      throw new NotFoundException(`Photographer with ID ${id} not found`);
+    }
+
+    const previousVideo = await this.profileVideoModel
+      .findOne({ userId: user._id, slot })
+      .exec();
+    const legacyVideoUrl = slot === 0
+      ? user.profileVideoUrls?.[0] || user.profileVideoUrl
+      : user.profileVideoUrls?.[slot];
+    const previousVideoUrl = previousVideo?.videoUrl || legacyVideoUrl;
+    const videoUrl = await this.fileUploadService.uploadVideoFile(file);
+    const videoName = basename(videoUrl);
+
+    let savedVideo: ProfileVideoDocument | null;
+    try {
+      savedVideo = await this.profileVideoModel
+        .findOneAndUpdate(
+          { userId: user._id, slot },
+          {
+            $set: {
+              userId: user._id,
+              slot,
+              videoName,
+              originalName: file.originalname,
+              videoUrl,
+            },
+          },
+          { new: true, upsert: true, runValidators: true, setDefaultsOnInsert: true },
+        )
+        .exec();
+    } catch (error) {
+      await this.fileUploadService.deleteFile(videoUrl);
+      throw error;
+    }
+
+    if (!savedVideo) {
+      await this.fileUploadService.deleteFile(videoUrl);
+      throw new NotFoundException(`Photographer with ID ${id} not found`);
+    }
+
+    if (previousVideoUrl && previousVideoUrl !== videoUrl) {
+      await this.fileUploadService.deleteFile(previousVideoUrl);
+    }
+
+    return savedVideo;
+  }
+
+  async findProfileVideos(userId: string): Promise<ProfileVideoDocument[]> {
+    if (!Types.ObjectId.isValid(userId)) {
+      throw new BadRequestException('Invalid user ID');
+    }
+    const user = await this.userModel
+      .findOne({
+        _id: userId,
+        type: UserRole.PHOTOGRAPHER,
+        deletedAt: { $exists: false },
+      })
+      .exec();
+    if (!user) {
+      throw new NotFoundException(`Photographer with ID ${userId} not found`);
+    }
+
+    return this.profileVideoModel
+      .find({ userId: user._id })
+      .sort({ slot: 1 })
+      .exec();
+  }
+
+  async removeProfileVideo(id: string, slot: number): Promise<void> {
+    if (!Types.ObjectId.isValid(id)) {
+      throw new BadRequestException('Invalid photographer ID');
+    }
+    if (!Number.isInteger(slot) || slot < 0 || slot > 1) {
+      throw new BadRequestException('Video slot must be 0 or 1');
+    }
+
+    const user = await this.userModel
+      .findOne({
+        _id: id,
+        type: UserRole.PHOTOGRAPHER,
+        deletedAt: { $exists: false },
+      })
+      .exec();
+    if (!user) {
+      throw new NotFoundException(`Photographer with ID ${id} not found`);
+    }
+
+    const legacyUrls = Array.isArray(user.profileVideoUrls)
+      ? [...user.profileVideoUrls]
+      : [];
+    const legacyVideoUrl = legacyUrls[slot] || (slot === 0 ? user.profileVideoUrl : '');
+    legacyUrls[slot] = '';
+
+    const updatedUser = await this.userModel
+      .findOneAndUpdate(
+        { _id: user._id, deletedAt: { $exists: false } },
+        {
+          $set: {
+            profileVideoUrls: legacyUrls,
+            ...(slot === 0 ? { profileVideoUrl: '' } : {}),
+          },
+        },
+        { new: true, runValidators: true },
+      )
+      .exec();
+    if (!updatedUser) {
+      throw new NotFoundException(`Photographer with ID ${id} not found`);
+    }
+
+    const video = await this.profileVideoModel
+      .findOneAndDelete({ userId: user._id, slot })
+      .exec();
+    if (video?.videoUrl) {
+      await this.fileUploadService.deleteFile(video.videoUrl);
+    }
+    if (legacyVideoUrl && legacyVideoUrl !== video?.videoUrl) {
+      await this.fileUploadService.deleteFile(legacyVideoUrl);
+    }
+  }
+
   async updateOccupiedDates(id: string, updateDto: UpdateOccupiedDatesDto): Promise<UserDocument> {
     if (!Types.ObjectId.isValid(id)) {
       throw new BadRequestException('Invalid user ID');
@@ -434,6 +600,21 @@ export class UsersService {
     if (user?.profileImageUrl) {
       await this.fileUploadService.deleteFile(user.profileImageUrl);
     }
+    const profileVideos = await this.profileVideoModel
+      .find({ userId: id })
+      .exec();
+    for (const video of profileVideos) {
+      await this.fileUploadService.deleteFile(video.videoUrl);
+    }
+    const legacyVideoUrls = user?.profileVideoUrls?.length
+      ? user.profileVideoUrls
+      : user?.profileVideoUrl
+        ? [user.profileVideoUrl]
+        : [];
+    for (const videoUrl of legacyVideoUrls) {
+      await this.fileUploadService.deleteFile(videoUrl);
+    }
+    await this.profileVideoModel.deleteMany({ userId: id }).exec();
 
     // Soft delete
     const result = await this.userModel.findOneAndUpdate(

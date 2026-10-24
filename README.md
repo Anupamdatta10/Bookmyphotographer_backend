@@ -112,6 +112,16 @@ src/
 | `JWT_SECRET` | JWT signing secret | Required for production |
 | `JWT_EXPIRATION` | JWT token expiration | `1d` |
 
+### Remove the legacy portfolio URL field
+
+The profile no longer supports a portfolio URL. To remove existing values from
+the `users` and legacy `photographers` collections, run this idempotent migration
+against the configured MongoDB database:
+
+```bash
+mongosh "$MONGODB_URI" docker/migrations/remove-portfolio-url.js
+```
+
 ## 📚 API Documentation
 
 Swagger UI is available at: `http://localhost:3001/api/docs`

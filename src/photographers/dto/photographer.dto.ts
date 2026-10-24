@@ -49,11 +49,6 @@ export class CreatePhotographerDto {
   @Min(0)
   pricePerHour?: number;
 
-  @ApiPropertyOptional({ example: 'https://portfolio.example.com' })
-  @IsOptional()
-  @IsUrl()
-  portfolioUrl?: string;
-
   @ApiPropertyOptional({ example: 'https://profile.example.com/image.jpg' })
   @IsOptional()
   @IsUrl()
@@ -110,11 +105,6 @@ export class UpdatePhotographerDto {
   @IsNumber()
   @Min(0)
   pricePerHour?: number;
-
-  @ApiPropertyOptional({ example: 'https://portfolio.example.com' })
-  @IsOptional()
-  @IsUrl()
-  portfolioUrl?: string;
 
   @ApiPropertyOptional({ example: 'https://profile.example.com/image.jpg' })
   @IsOptional()

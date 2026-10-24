@@ -229,11 +229,6 @@ export class UpdateUserDto {
   @Min(0)
   experienceYears?: number;
 
-  @ApiPropertyOptional({ example: 'https://portfolio.example.com' })
-  @IsOptional()
-  @IsString()
-  portfolioUrl?: string;
-
   @ApiPropertyOptional({ example: 'Photographer' })
   @IsOptional()
   @IsString()

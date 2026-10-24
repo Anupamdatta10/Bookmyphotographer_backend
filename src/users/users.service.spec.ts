@@ -7,6 +7,7 @@ describe('UsersService registration flow', () => {
   let adminModel: any;
   let registrationOtpModel: any;
   let fileUploadService: any;
+  let profileVideoModel: any;
 
   beforeEach(() => {
     userModel = jest.fn().mockImplementation((user) => ({
@@ -21,8 +22,26 @@ describe('UsersService registration flow', () => {
       findOne: jest.fn(),
       deleteOne: jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue({ deletedCount: 1 }) }),
     };
-    fileUploadService = { uploadFile: jest.fn() };
-    service = new UsersService(userModel, adminModel, registrationOtpModel, fileUploadService, {} as any);
+    fileUploadService = {
+      uploadFile: jest.fn(),
+      uploadVideoFile: jest.fn(),
+      deleteFile: jest.fn(),
+    };
+    profileVideoModel = {
+      findOne: jest.fn(),
+      findOneAndUpdate: jest.fn(),
+      findOneAndDelete: jest.fn(),
+      find: jest.fn(),
+      deleteMany: jest.fn(),
+    };
+    service = new UsersService(
+      userModel,
+      adminModel,
+      registrationOtpModel,
+      fileUploadService,
+      profileVideoModel,
+      {} as any,
+    );
   });
 
   it('creates a user from verified pending registration details', async () => {
@@ -195,5 +214,158 @@ describe('UsersService registration flow', () => {
       { new: true, runValidators: true },
     );
     expect(updateQuery.select).toHaveBeenCalledWith('-password');
+  });
+
+  it('stores a new profile video for a photographer and removes the previous video', async () => {
+    const userId = '65a000000000000000000006';
+    const uploadedVideoUrl = '/public/uploads/videos/new-video.mp4';
+    const user = { _id: userId, type: UserRole.PHOTOGRAPHER };
+    const previousVideo = {
+      _id: 'video-id',
+      userId,
+      slot: 1,
+      videoName: 'old-video.mp4',
+      videoUrl: '/public/uploads/videos/old-video.mp4',
+    };
+    const savedVideo = {
+      _id: 'video-id',
+      userId,
+      slot: 1,
+      videoName: 'new-video.mp4',
+      originalName: 'new-video.mp4',
+      videoUrl: uploadedVideoUrl,
+    };
+    userModel.findOne.mockReturnValue({
+      exec: jest.fn().mockResolvedValue(user),
+    });
+    profileVideoModel.findOne.mockReturnValue({
+      exec: jest.fn().mockResolvedValue(previousVideo),
+    });
+    profileVideoModel.findOneAndUpdate.mockReturnValue({
+      exec: jest.fn().mockResolvedValue(savedVideo),
+    });
+    fileUploadService.uploadVideoFile.mockResolvedValue(uploadedVideoUrl);
+
+    await expect(
+      service.updateProfileVideo(userId, 1, {
+        originalname: 'new-video.mp4',
+        mimetype: 'video/mp4',
+        size: 1024,
+      } as Express.Multer.File),
+    ).resolves.toBe(savedVideo);
+
+    expect(fileUploadService.uploadVideoFile).toHaveBeenCalled();
+    expect(profileVideoModel.findOneAndUpdate).toHaveBeenCalledWith(
+      { userId: user._id, slot: 1 },
+      {
+        $set: {
+          userId: user._id,
+          slot: 1,
+          videoName: 'new-video.mp4',
+          originalName: 'new-video.mp4',
+          videoUrl: uploadedVideoUrl,
+        },
+      },
+      {
+        new: true,
+        upsert: true,
+        runValidators: true,
+        setDefaultsOnInsert: true,
+      },
+    );
+    expect(fileUploadService.deleteFile).toHaveBeenCalledWith(
+      previousVideo.videoUrl,
+    );
+  });
+
+  it('rejects profile video slots outside the two available slots', async () => {
+    await expect(
+      service.updateProfileVideo('65a000000000000000000007', 2, {
+        originalname: 'new-video.mp4',
+        mimetype: 'video/mp4',
+        size: 1024,
+      } as Express.Multer.File),
+    ).rejects.toThrow('Video slot must be 0 or 1');
+  });
+
+  it('loads profile video records in slot order', async () => {
+    const userId = '65a000000000000000000008';
+    const user = { _id: userId, type: UserRole.PHOTOGRAPHER };
+    const videos = [{ slot: 0 }, { slot: 1 }];
+    const query = {
+      sort: jest.fn().mockReturnThis(),
+      exec: jest.fn().mockResolvedValue(videos),
+    };
+    userModel.findOne.mockReturnValue({
+      exec: jest.fn().mockResolvedValue(user),
+    });
+    profileVideoModel.find.mockReturnValue(query);
+
+    await expect(service.findProfileVideos(userId)).resolves.toBe(videos);
+    expect(profileVideoModel.find).toHaveBeenCalledWith({ userId: user._id });
+    expect(query.sort).toHaveBeenCalledWith({ slot: 1 });
+  });
+
+  it('removes a profile video record and its stored file', async () => {
+    const userId = '65a000000000000000000009';
+    const user = {
+      _id: userId,
+      type: UserRole.PHOTOGRAPHER,
+      profileVideoUrls: ['', '/public/uploads/videos/legacy.mp4'],
+      profileVideoUrl: '',
+    };
+    const video = {
+      videoUrl: '/public/uploads/videos/saved-video.mp4',
+    };
+    userModel.findOne.mockReturnValue({
+      exec: jest.fn().mockResolvedValue(user),
+    });
+    userModel.findOneAndUpdate.mockReturnValue({
+      exec: jest.fn().mockResolvedValue(user),
+    });
+    profileVideoModel.findOneAndDelete.mockReturnValue({
+      exec: jest.fn().mockResolvedValue(video),
+    });
+
+    await expect(service.removeProfileVideo(userId, 1)).resolves.toBeUndefined();
+
+    expect(userModel.findOneAndUpdate).toHaveBeenCalledWith(
+      { _id: user._id, deletedAt: { $exists: false } },
+      {
+        $set: {
+          profileVideoUrls: ['', ''],
+        },
+      },
+      { new: true, runValidators: true },
+    );
+    expect(profileVideoModel.findOneAndDelete).toHaveBeenCalledWith({
+      userId: user._id,
+      slot: 1,
+    });
+    expect(fileUploadService.deleteFile).toHaveBeenCalledWith(video.videoUrl);
+    expect(fileUploadService.deleteFile).toHaveBeenCalledWith(
+      '/public/uploads/videos/legacy.mp4',
+    );
+  });
+
+  it('removes the profile picture and its stored file', async () => {
+    const userId = '65a000000000000000000010';
+    const user = {
+      profileImageUrl: '/public/uploads/profiles/profile-image.jpg',
+    };
+    userModel.findOneAndUpdate.mockReturnValue({
+      exec: jest.fn().mockResolvedValue(user),
+    });
+
+    await expect(service.removeProfilePicture(userId)).resolves.toBeUndefined();
+
+    expect(userModel.findOneAndUpdate).toHaveBeenCalledWith(
+      { _id: userId, deletedAt: { $exists: false } },
+      { $set: { profileImageUrl: '' } },
+      { new: false, runValidators: true },
+    );
+    expect(fileUploadService.deleteFile).toHaveBeenCalledWith(
+      user.profileImageUrl,
+    );
   });
 });

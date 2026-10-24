@@ -22,6 +22,8 @@ import { UsersService } from './users.service';
 import { CreateUserFirstDto, CreateUserSecondDto, UpdateUserDto, UpdateOccupiedDatesDto, UpdateUserStatusDto, UserQueryDto, LoginDto, VerifyOtpDto } from './dto/user.dto';
 import { User, UserRole } from '../schemas/user.schema';
 import { JwtService } from '@nestjs/jwt';
+import { MAX_VIDEO_FILE_SIZE } from '../common/services/file-upload.service';
+import { ProfileVideo } from '../schemas/profile-video.schema';
 
 @ApiTags('users')
 @Controller('users')
@@ -127,6 +129,29 @@ export class UsersController {
     return this.usersService.getStats();
   }
 
+  @Get(':id/profile-videos')
+  @ApiOperation({ summary: 'Get profile videos for a photographer' })
+  @ApiParam({ name: 'id', description: 'Photographer user ID' })
+  @ApiResponse({ status: 200, description: 'Photographer profile videos', type: [ProfileVideo] })
+  async getProfileVideos(@Param('id') id: string): Promise<ProfileVideo[]> {
+    return this.usersService.findProfileVideos(id);
+  }
+
+  @Delete(':id/profile-videos/:slot')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Remove a photographer profile video slot' })
+  @ApiParam({ name: 'id', description: 'Photographer user ID' })
+  @ApiParam({ name: 'slot', description: 'Video slot (0 or 1)' })
+  @ApiResponse({ status: 204, description: 'Profile video removed successfully' })
+  @ApiResponse({ status: 400, description: 'Invalid photographer ID or video slot' })
+  @ApiResponse({ status: 404, description: 'Photographer not found' })
+  async removeProfileVideo(
+    @Param('id') id: string,
+    @Param('slot') slot: string,
+  ): Promise<void> {
+    return this.usersService.removeProfileVideo(id, Number(slot));
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Get a user by ID' })
   @ApiParam({ name: 'id', description: 'User ID' })
@@ -194,6 +219,62 @@ export class UsersController {
     @UploadedFile() file?: Express.Multer.File,
   ): Promise<User> {
     return this.usersService.updateProfilePicture(id, file);
+  }
+
+  @Delete(':id/profile-picture')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Remove a user profile picture' })
+  @ApiParam({ name: 'id', description: 'User ID' })
+  @ApiResponse({ status: 204, description: 'Profile picture removed successfully' })
+  @ApiResponse({ status: 404, description: 'User not found' })
+  async removeProfilePicture(@Param('id') id: string): Promise<void> {
+    return this.usersService.removeProfilePicture(id);
+  }
+
+  @Patch(':id/profile-videos/:slot')
+  @ApiOperation({ summary: 'Update a photographer profile video slot' })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: { file: { type: 'string', format: 'binary' } },
+      required: ['file'],
+    },
+  })
+  @ApiParam({ name: 'id', description: 'Photographer user ID' })
+  @ApiParam({ name: 'slot', description: 'Video slot (0 or 1)' })
+  @ApiResponse({ status: 200, description: 'Profile video updated successfully', type: ProfileVideo })
+  @UseInterceptors(
+    FileInterceptor('file', { limits: { fileSize: MAX_VIDEO_FILE_SIZE } }),
+  )
+  async updateProfileVideo(
+    @Param('id') id: string,
+    @Param('slot') slot: string,
+    @UploadedFile() file?: Express.Multer.File,
+  ): Promise<ProfileVideo> {
+    return this.usersService.updateProfileVideo(id, Number(slot), file);
+  }
+
+  @Patch(':id/profile-video')
+  @ApiOperation({ summary: 'Update the first photographer profile video slot' })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: { file: { type: 'string', format: 'binary' } },
+      required: ['file'],
+    },
+  })
+  @ApiParam({ name: 'id', description: 'Photographer user ID' })
+  @ApiResponse({ status: 200, description: 'Profile video updated successfully', type: ProfileVideo })
+  @UseInterceptors(
+    FileInterceptor('file', { limits: { fileSize: MAX_VIDEO_FILE_SIZE } }),
+  )
+  async updateFirstProfileVideo(
+    @Param('id') id: string,
+    @UploadedFile() file?: Express.Multer.File,
+  ): Promise<ProfileVideo> {
+    return this.usersService.updateProfileVideo(id, 0, file);
   }
 
   @Patch(':id/occupied-dates')

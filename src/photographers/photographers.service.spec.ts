@@ -19,7 +19,6 @@ describe('PhotographersService', () => {
     bio: 'Professional photographer',
     experienceYears: 10,
     pricePerHour: 200,
-    portfolioUrl: 'https://portfolio.example.com',
     profileImageUrl: 'https://profile.example.com/image.jpg',
     isAvailable: true,
     rating: 4.5,
