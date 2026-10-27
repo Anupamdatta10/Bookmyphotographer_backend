@@ -5,6 +5,15 @@ import * as bcrypt from 'bcrypt';
 import { User, UserDocument, UserRole, UserStatus } from '../schemas/user.schema';
 import { CreatePhotographerDto, UpdatePhotographerDto, PhotographerQueryDto } from './dto/photographer.dto';
 
+function escapeRegex(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function locationRegex(value: string): RegExp {
+  const words = value.trim().split(/[_\s]+/).map(escapeRegex);
+  return new RegExp(words.join('[_\\s,.-]*'), 'i');
+}
+
 @Injectable()
 export class PhotographersService {
   constructor(
@@ -44,6 +53,9 @@ export class PhotographersService {
       sortBy = 'createdAt',
       sortOrder = 'desc',
       search,
+      district,
+      districtCities,
+      city,
     } = queryDto;
 
     // Build filter query
@@ -70,13 +82,41 @@ export class PhotographersService {
       filter.rating = { $gte: minRating };
     }
 
-    if (search) {
+    if (search?.trim()) {
+      const searchRegex = new RegExp(escapeRegex(search.trim()), 'i');
       filter.$or = [
-        { name: { $regex: search, $options: 'i' } },
-        { email: { $regex: search, $options: 'i' } },
-        { bio: { $regex: search, $options: 'i' } },
-        { specialties: { $in: [new RegExp(search, 'i')] } },
+        { name: searchRegex },
+        { email: searchRegex },
+        { city: searchRegex },
+        { state: searchRegex },
+        { country: searchRegex },
+        { bio: searchRegex },
+        { proffession: searchRegex },
+        { specialties: { $in: [searchRegex] } },
       ];
+    }
+
+    if (district) {
+      const districtCityValues = districtCities
+        ?.split(',')
+        .map((value) => value.trim())
+        .filter(Boolean)
+        .slice(0, 100);
+      const districtFilters: FilterQuery<UserDocument>[] = [
+        { district: locationRegex(district) },
+      ];
+
+      if (districtCityValues?.length) {
+        districtFilters.push({
+          city: { $in: districtCityValues.map(locationRegex) },
+        });
+      }
+
+      filter.$and = [{ $or: districtFilters }];
+    }
+
+    if (city) {
+      filter.city = locationRegex(city);
     }
 
     // Exclude soft deleted

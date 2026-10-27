@@ -147,6 +147,56 @@ describe('PhotographersService', () => {
         deletedAt: { $exists: false },
       });
     });
+
+    it('applies escaped text search and location filters in the database query', async () => {
+      const query = {
+        select: jest.fn().mockReturnThis(),
+        sort: jest.fn().mockReturnThis(),
+        skip: jest.fn().mockReturnThis(),
+        limit: jest.fn().mockReturnThis(),
+        exec: jest.fn().mockResolvedValue([mockPhotographer]),
+      };
+      model.find.mockReturnValueOnce(query);
+
+      await service.findAll({
+        page: 1,
+        limit: 10,
+        search: 'John.*',
+        district: 'north_24_parganas',
+        districtCities: 'cooch_behar,dinhata',
+        city: 'cooch_behar',
+      });
+
+      const filter = model.find.mock.calls[0][0];
+      expect(filter.$and[0].$or[0].district.test('North 24 Parganas')).toBe(true);
+      const districtCityFilter = filter.$and[0].$or[1].city.$in;
+      expect(districtCityFilter[0].test('Cooch Behar')).toBe(true);
+      expect(districtCityFilter[0].test('Cooch Behar town')).toBe(true);
+      expect(filter.$or[0].name.test('John.* Doe')).toBe(true);
+      expect(filter.$or[0].name.test('JohnXX Doe')).toBe(false);
+    });
+
+    it('matches selected district cities when photographer district is not populated', async () => {
+      const query = {
+        select: jest.fn().mockReturnThis(),
+        sort: jest.fn().mockReturnThis(),
+        skip: jest.fn().mockReturnThis(),
+        limit: jest.fn().mockReturnThis(),
+        exec: jest.fn().mockResolvedValue([mockPhotographer]),
+      };
+      model.find.mockReturnValueOnce(query);
+
+      await service.findAll({
+        page: 1,
+        limit: 10,
+        district: 'kolkata',
+        districtCities: 'kolkata,baruipur',
+      });
+
+      const districtCityFilter = model.find.mock.calls[0][0].$and[0].$or[1].city.$in;
+      expect(districtCityFilter[0].test('KOLKATA')).toBe(true);
+      expect(districtCityFilter[1].test('baruipur ,saha para')).toBe(true);
+    });
   });
 
   describe('findByEmail', () => {
