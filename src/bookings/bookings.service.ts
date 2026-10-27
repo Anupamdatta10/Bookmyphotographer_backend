@@ -35,7 +35,12 @@ export class BookingsService {
             {
               $expr: {
                 $lt: [
-                  { $add: ['$eventDate', { $multiply: ['$durationHours', 3600000] }] },
+                  {
+                    $add: [
+                      { $arrayElemAt: ['$eventDate', 0] },
+                      { $multiply: ['$durationHours', 3600000] },
+                    ],
+                  },
                   endDate,
                 ],
               },
@@ -203,7 +208,12 @@ export class BookingsService {
                 {
                   $expr: {
                     $lt: [
-                      { $add: ['$eventDate', { $multiply: ['$durationHours', 3600000] }] },
+                      {
+                        $add: [
+                          { $arrayElemAt: ['$eventDate', 0] },
+                          { $multiply: ['$durationHours', 3600000] },
+                        ],
+                      },
                       endDate,
                     ],
                   },

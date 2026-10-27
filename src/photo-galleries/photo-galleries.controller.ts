@@ -14,13 +14,15 @@ import {
   UseInterceptors,
   UploadedFile,
   UploadedFiles,
+  UseGuards,
 } from '@nestjs/common';
 import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
-import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiQuery, ApiConsumes, ApiBody } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiQuery, ApiConsumes, ApiBody, ApiBearerAuth } from '@nestjs/swagger';
 import { PhotoGalleriesService } from './photo-galleries.service';
 import { CreatePhotoGalleryDto, UpdatePhotoGalleryDto, PhotoGalleryQueryDto } from './dto/photo-gallery.dto';
 import { PhotoGallery } from '../schemas/photo-gallery.schema';
 import { MAX_IMAGE_FILE_SIZE } from '../common/services/file-upload.service';
+import { AdminSelfGuard } from '../admins/admin-auth.guard';
 
 @ApiTags('photo-galleries')
 @Controller('photo-galleries')
@@ -28,6 +30,8 @@ export class PhotoGalleriesController {
   constructor(private readonly photoGalleriesService: PhotoGalleriesService) {}
 
   @Post()
+  @UseGuards(AdminSelfGuard)
+  @ApiBearerAuth()
   @ApiOperation({ summary: 'Create a new photo gallery entry with file upload' })
   @ApiConsumes('multipart/form-data')
   @ApiBody({
@@ -55,6 +59,8 @@ export class PhotoGalleriesController {
   }
 
   @Get()
+    // @UseGuards(AdminSelfGuard)
+    // @ApiBearerAuth()
   @ApiOperation({ summary: 'Get all photo galleries with pagination and filters' })
   @ApiResponse({ status: 200, description: 'List of photo galleries with pagination info' })
   @UsePipes(new ValidationPipe({ transform: true }))
@@ -63,6 +69,8 @@ export class PhotoGalleriesController {
   }
 
   @Get('user/:userId')
+  // @UseGuards(AdminSelfGuard)
+  // @ApiBearerAuth()
   @ApiOperation({ summary: 'Get photo galleries for a specific user' })
   @ApiParam({ name: 'userId', description: 'User ID' })
   @ApiResponse({ status: 200, description: 'List of photo galleries for the user' })
@@ -83,6 +91,8 @@ export class PhotoGalleriesController {
   }
 
   @Get(':id')
+  // @UseGuards(AdminSelfGuard)
+  // @ApiBearerAuth()
   @ApiOperation({ summary: 'Get a photo gallery by ID' })
   @ApiParam({ name: 'id', description: 'Photo Gallery ID' })
   @ApiResponse({ status: 200, description: 'Photo gallery found', type: PhotoGallery })
@@ -93,6 +103,8 @@ export class PhotoGalleriesController {
   }
 
   @Patch(':id')
+  @UseGuards(AdminSelfGuard)
+  @ApiBearerAuth()
   @ApiOperation({ summary: 'Update a photo gallery with optional file upload' })
   @ApiConsumes('multipart/form-data')
   @ApiBody({
@@ -122,6 +134,8 @@ export class PhotoGalleriesController {
   }
 
   @Delete(':id')
+  @UseGuards(AdminSelfGuard)
+  @ApiBearerAuth()
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Delete a photo gallery' })
   @ApiParam({ name: 'id', description: 'Photo Gallery ID' })

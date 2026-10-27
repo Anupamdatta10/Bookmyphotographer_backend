@@ -14,16 +14,36 @@ import {
   UseInterceptors,
   UploadedFile,
   Res,
+  UseGuards,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { Response } from 'express';
-import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiQuery, ApiConsumes, ApiBody } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiParam,
+  ApiQuery,
+  ApiConsumes,
+  ApiBody,
+  ApiBearerAuth,
+} from '@nestjs/swagger';
 import { UsersService } from './users.service';
-import { CreateUserFirstDto, CreateUserSecondDto, UpdateUserDto, UpdateOccupiedDatesDto, UpdateUserStatusDto, UserQueryDto, LoginDto, VerifyOtpDto } from './dto/user.dto';
+import {
+  CreateUserFirstDto,
+  CreateUserSecondDto,
+  UpdateUserDto,
+  UpdateOccupiedDatesDto,
+  UpdateUserStatusDto,
+  UserQueryDto,
+  LoginDto,
+  VerifyOtpDto,
+} from './dto/user.dto';
 import { User, UserRole } from '../schemas/user.schema';
 import { JwtService } from '@nestjs/jwt';
 import { MAX_VIDEO_FILE_SIZE } from '../common/services/file-upload.service';
 import { ProfileVideo } from '../schemas/profile-video.schema';
+import { UserAuthGuard } from './user-auth.guard';
 
 @ApiTags('users')
 @Controller('users')
@@ -163,6 +183,8 @@ export class UsersController {
   }
 
   @Patch(':id')
+  @UseGuards(UserAuthGuard)
+  @ApiBearerAuth()
   @ApiOperation({ summary: 'Update user details' })
   @ApiConsumes('application/json')
   @ApiBody({
@@ -202,6 +224,8 @@ export class UsersController {
   }
 
   @Patch(':id/profile-picture')
+  @UseGuards(UserAuthGuard)
+  @ApiBearerAuth()
   @ApiOperation({ summary: 'Update user profile picture' })
   @ApiConsumes('multipart/form-data')
   @ApiBody({
@@ -232,6 +256,8 @@ export class UsersController {
   }
 
   @Patch(':id/profile-videos/:slot')
+  @UseGuards(UserAuthGuard)
+  @ApiBearerAuth()
   @ApiOperation({ summary: 'Update a photographer profile video slot' })
   @ApiConsumes('multipart/form-data')
   @ApiBody({
@@ -256,6 +282,8 @@ export class UsersController {
   }
 
   @Patch(':id/profile-video')
+  @UseGuards(UserAuthGuard)
+  @ApiBearerAuth()
   @ApiOperation({ summary: 'Update the first photographer profile video slot' })
   @ApiConsumes('multipart/form-data')
   @ApiBody({
@@ -278,6 +306,8 @@ export class UsersController {
   }
 
   @Patch(':id/occupied-dates')
+  @UseGuards(UserAuthGuard)
+  @ApiBearerAuth()
   @ApiOperation({ summary: 'Replace a user\'s occupied dates' })
   @ApiParam({ name: 'id', description: 'User ID' })
   @ApiResponse({ status: 200, description: 'Occupied dates updated successfully', type: User })

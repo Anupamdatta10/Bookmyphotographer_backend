@@ -28,7 +28,6 @@ import {
 import {
   AdminSelfGuard,
   RequestWithAdmin,
-  SuperAdminGuard,
 } from './admin-auth.guard';
 import { AdminsService } from './admins.service';
 
@@ -38,7 +37,7 @@ export class AdminsController {
   constructor(private readonly adminsService: AdminsService) {}
 
   @Get()
-  @UseGuards(SuperAdminGuard)
+  @UseGuards(AdminSelfGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'List normal admin accounts (superadmin only)' })
   @ApiResponse({ status: 200, description: 'Admin account list' })
@@ -48,7 +47,7 @@ export class AdminsController {
   }
 
   @Post()
-  @UseGuards(SuperAdminGuard)
+  @UseGuards(AdminSelfGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Create a normal admin account (superadmin only)' })
   @ApiResponse({ status: 201, description: 'Admin account created' })
@@ -58,7 +57,7 @@ export class AdminsController {
   }
 
   @Delete(':id')
-  @UseGuards(SuperAdminGuard)
+  @UseGuards(AdminSelfGuard)
   @ApiBearerAuth()
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Soft-delete a normal admin account (superadmin only)' })
