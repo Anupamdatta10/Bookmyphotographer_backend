@@ -13,12 +13,12 @@ import {
   HttpStatus,
   UseGuards,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiQuery } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiQuery, ApiBearerAuth } from '@nestjs/swagger';
 import { BookingsService } from './bookings.service';
 import { CreateBookingDto, UpdateBookingDto, BookingQueryDto } from './dto/booking.dto';
 import { Booking, BookingStatus } from '../schemas/booking.schema';
 import { AdminSelfGuard } from '../admins/admin-auth.guard';
-import { ApiBearerAuth } from '@nestjs/swagger';
+import { UserAuthGuard } from '@/users/user-auth.guard';
 
 @ApiTags('bookings')
 @Controller('bookings')
@@ -26,6 +26,8 @@ export class BookingsController {
   constructor(private readonly bookingsService: BookingsService) {}
 
   @Post()
+  @UseGuards(UserAuthGuard)
+  @ApiBearerAuth()
   @ApiOperation({ summary: 'Create a new booking' })
   @ApiResponse({ status: 201, description: 'Booking created successfully', type: Booking })
   @ApiResponse({ status: 400, description: 'Bad request - validation error' })
@@ -56,6 +58,8 @@ export class BookingsController {
   }
 
   @Get('photographer/:photographerId')
+  @UseGuards(AdminSelfGuard)
+  @ApiBearerAuth()
   @ApiOperation({ summary: 'Get bookings for a specific photographer' })
   @ApiParam({ name: 'photographerId', description: 'Photographer ID' })
   @ApiResponse({ status: 200, description: 'List of bookings for the photographer' })
@@ -68,6 +72,8 @@ export class BookingsController {
   }
 
   @Get('user/:userId')
+  @UseGuards(AdminSelfGuard)
+  @ApiBearerAuth()
   @ApiOperation({ summary: 'Get bookings for a specific user' })
   @ApiParam({ name: 'userId', description: 'User ID' })
   @ApiResponse({ status: 200, description: 'List of bookings for the user' })
@@ -92,6 +98,8 @@ export class BookingsController {
   }
 
   @Get(':id')
+  @UseGuards(AdminSelfGuard)
+  @ApiBearerAuth()
   @ApiOperation({ summary: 'Get a booking by ID' })
   @ApiParam({ name: 'id', description: 'Booking ID' })
   @ApiResponse({ status: 200, description: 'Booking found', type: Booking })
@@ -129,6 +137,8 @@ export class BookingsController {
   }
 
   @Delete(':id')
+  @UseGuards(AdminSelfGuard)
+  @ApiBearerAuth()
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Delete a booking' })
   @ApiParam({ name: 'id', description: 'Booking ID' })

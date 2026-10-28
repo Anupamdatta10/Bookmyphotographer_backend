@@ -1,4 +1,4 @@
-import { IsString, IsEmail, IsPhoneNumber, IsArray, IsOptional, IsNumber, Min, Max, IsUrl, IsBoolean, MinLength } from 'class-validator';
+import { IsString, IsEmail, IsPhoneNumber, IsArray, IsOptional, IsNumber, Min, Max, IsUrl, IsBoolean, MinLength, MaxLength } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 
@@ -186,5 +186,24 @@ export class PhotographerQueryDto {
   @ApiPropertyOptional({ example: 'john' })
   @IsOptional()
   @IsString()
+  @MaxLength(100)
   search?: string;
+
+  @ApiPropertyOptional({ example: 'kolkata' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  district?: string;
+
+  @ApiPropertyOptional({ example: 'kolkata,baruipur' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(2000)
+  districtCities?: string;
+
+  @ApiPropertyOptional({ example: 'kolkata' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  city?: string;
 }

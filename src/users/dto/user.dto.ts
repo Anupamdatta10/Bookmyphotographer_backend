@@ -204,6 +204,11 @@ export class UpdateUserDto {
   @IsString()
   state?: string;
 
+  @ApiPropertyOptional({ example: 'Los Angeles' })
+  @IsOptional()
+  @IsString()
+  district?: string;
+
   @ApiPropertyOptional({ example: '123 Main St' })
   @IsOptional()
   @IsString()

@@ -11,11 +11,13 @@ import {
   ValidationPipe,
   HttpCode,
   HttpStatus,
+  UseGuards,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiQuery } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiQuery, ApiBearerAuth } from '@nestjs/swagger';
 import { ReviewsService } from './reviews.service';
 import { CreateReviewDto, UpdateReviewDto, ReviewQueryDto } from './dto/review.dto';
 import { Review } from '../schemas/review.schema';
+import { AdminSelfGuard } from '../admins/admin-auth.guard';
 
 @ApiTags('reviews')
 @Controller('reviews')
@@ -23,6 +25,8 @@ export class ReviewsController {
   constructor(private readonly reviewsService: ReviewsService) {}
 
   @Post()
+  @UseGuards(AdminSelfGuard)
+  @ApiBearerAuth()
   @ApiOperation({ summary: 'Create a new review' })
   @ApiResponse({ status: 201, description: 'Review created successfully', type: Review })
   @ApiResponse({ status: 400, description: 'Bad request - validation error' })
@@ -33,6 +37,8 @@ export class ReviewsController {
   }
 
   @Get()
+  @UseGuards(AdminSelfGuard)
+  @ApiBearerAuth()
   @ApiOperation({ summary: 'Get all reviews with pagination and filters' })
   @ApiResponse({ status: 200, description: 'List of reviews with pagination info' })
   @UsePipes(new ValidationPipe({ transform: true }))
@@ -41,6 +47,8 @@ export class ReviewsController {
   }
 
   @Get('photographer/:photographerId')
+  @UseGuards(AdminSelfGuard)
+  @ApiBearerAuth()
   @ApiOperation({ summary: 'Get reviews for a specific photographer' })
   @ApiParam({ name: 'photographerId', description: 'Photographer ID' })
   @ApiResponse({ status: 200, description: 'List of reviews for the photographer' })
@@ -53,6 +61,8 @@ export class ReviewsController {
   }
 
   @Get('user/:userId')
+  @UseGuards(AdminSelfGuard)
+  @ApiBearerAuth()
   @ApiOperation({ summary: 'Get reviews by a specific user' })
   @ApiParam({ name: 'userId', description: 'User ID' })
   @ApiResponse({ status: 200, description: 'List of reviews by the user' })
@@ -65,6 +75,8 @@ export class ReviewsController {
   }
 
   @Get('photographer/:photographerId/stats')
+  @UseGuards(AdminSelfGuard)
+  @ApiBearerAuth()
   @ApiOperation({ summary: 'Get review statistics for a photographer' })
   @ApiParam({ name: 'photographerId', description: 'Photographer ID' })
   @ApiResponse({ status: 200, description: 'Review statistics' })
@@ -73,6 +85,8 @@ export class ReviewsController {
   }
 
   @Get(':id')
+  @UseGuards(AdminSelfGuard)
+  @ApiBearerAuth()
   @ApiOperation({ summary: 'Get a review by ID' })
   @ApiParam({ name: 'id', description: 'Review ID' })
   @ApiResponse({ status: 200, description: 'Review found', type: Review })
@@ -83,6 +97,8 @@ export class ReviewsController {
   }
 
   @Patch(':id')
+  @UseGuards(AdminSelfGuard)
+  @ApiBearerAuth()
   @ApiOperation({ summary: 'Update a review' })
   @ApiParam({ name: 'id', description: 'Review ID' })
   @ApiResponse({ status: 200, description: 'Review updated successfully', type: Review })

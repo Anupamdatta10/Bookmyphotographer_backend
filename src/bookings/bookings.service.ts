@@ -45,12 +45,22 @@ export class BookingsService {
           photographerId: createBookingDto.photographerId,
           status: { $in: [BookingStatus.PENDING, BookingStatus.CONFIRMED, BookingStatus.IN_PROGRESS] },
           deletedAt: { $exists: false },
-          eventDate: {
-            $elemMatch: {
-              $gte: new Date(date.getTime() - 24 * 60 * 60 * 1000),
-              $lt: endDate,
+          $or: [
+            { eventDate: { $elemMatch: { $lt: endDate, $gte: date } } },
+            {
+              $expr: {
+                $lt: [
+                  {
+                    $add: [
+                      { $arrayElemAt: ['$eventDate', 0] },
+                      { $multiply: ['$durationHours', 3600000] },
+                    ],
+                  },
+                  endDate,
+                ],
+              },
             },
-          },
+          ],
         }).exec();
 
         if (conflictingBooking) {
@@ -226,7 +236,12 @@ export class BookingsService {
                 {
                   $expr: {
                     $lt: [
-                      { $add: ['$eventDate', { $multiply: ['$durationHours', 3600000] }] },
+                      {
+                        $add: [
+                          { $arrayElemAt: ['$eventDate', 0] },
+                          { $multiply: ['$durationHours', 3600000] },
+                        ],
+                      },
                       endDate,
                     ],
                   },

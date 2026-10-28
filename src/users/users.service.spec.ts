@@ -90,6 +90,7 @@ describe('UsersService registration flow', () => {
       latitude: 37.7749,
       longitude: -122.4194,
       phone: '+1234567890',
+      district: 'kolkata',
     }, undefined);
 
     expect(result.data).toBe(updatedUser);
@@ -100,8 +101,8 @@ describe('UsersService registration flow', () => {
           type: UserRole.PHOTOGRAPHER,
           phone: '+1234567890',
           city: null,
+          district: 'kolkata',
           country: null,
-          district: null,
           state: null,
           address1: null,
           address2: null,
@@ -112,6 +113,26 @@ describe('UsersService registration flow', () => {
       { new: true, runValidators: true },
     );
     expect(updateQuery.select).toHaveBeenCalledWith('-password');
+  });
+
+  it('updates a user district from the profile editor', async () => {
+    const userId = '65a000000000000000000007';
+    const updatedUser = { _id: userId, district: 'kolkata' };
+    const updateQuery = {
+      select: jest.fn().mockReturnThis(),
+      exec: jest.fn().mockResolvedValue(updatedUser),
+    };
+    userModel.findOneAndUpdate.mockReturnValue(updateQuery);
+
+    await expect(
+      service.update(userId, { district: 'kolkata' }),
+    ).resolves.toBe(updatedUser);
+
+    expect(userModel.findOneAndUpdate).toHaveBeenCalledWith(
+      { _id: userId, deletedAt: { $exists: false } },
+      { $set: { district: 'kolkata' } },
+      { new: true, runValidators: true },
+    );
   });
 
   it('calculates and stores age when a date of birth is updated', async () => {

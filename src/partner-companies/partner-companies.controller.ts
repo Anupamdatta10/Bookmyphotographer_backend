@@ -11,12 +11,14 @@ import {
   Query,
   UsePipes,
   ValidationPipe,
+  UseGuards,
 } from '@nestjs/common';
 import {
   ApiOperation,
   ApiParam,
   ApiResponse,
   ApiTags,
+  ApiBearerAuth,
 } from '@nestjs/swagger';
 import {
   CreatePartnerCompanyDto,
@@ -24,6 +26,7 @@ import {
   UpdatePartnerCompanyDto,
 } from './dto/partner-company.dto';
 import { PartnerCompaniesService } from './partner-companies.service';
+import { AdminSelfGuard } from '../admins/admin-auth.guard';
 
 @ApiTags('partner-companies')
 @Controller('partner-companies')
@@ -33,6 +36,8 @@ export class PartnerCompaniesController {
   ) {}
 
   @Post()
+  @UseGuards(AdminSelfGuard)
+  @ApiBearerAuth()
   @ApiOperation({ summary: 'Create a partner company' })
   @ApiResponse({ status: 201, description: 'Partner company created' })
   @UsePipes(new ValidationPipe({ transform: true }))
@@ -41,6 +46,8 @@ export class PartnerCompaniesController {
   }
 
   @Get()
+  // @UseGuards(AdminSelfGuard)
+  // @ApiBearerAuth()
   @ApiOperation({ summary: 'List partner companies with optional filters' })
   @ApiResponse({ status: 200, description: 'Partner companies and total count' })
   @UsePipes(new ValidationPipe({ transform: true }))
@@ -49,6 +56,8 @@ export class PartnerCompaniesController {
   }
 
   @Get(':id')
+  @UseGuards(AdminSelfGuard)
+  @ApiBearerAuth()
   @ApiOperation({ summary: 'Get a partner company by ID' })
   @ApiParam({ name: 'id', description: 'Partner company ID' })
   @ApiResponse({ status: 200, description: 'Partner company found' })
@@ -57,6 +66,8 @@ export class PartnerCompaniesController {
   }
 
   @Patch(':id')
+  @UseGuards(AdminSelfGuard)
+  @ApiBearerAuth()
   @ApiOperation({ summary: 'Update a partner company' })
   @ApiParam({ name: 'id', description: 'Partner company ID' })
   @ApiResponse({ status: 200, description: 'Partner company updated' })
