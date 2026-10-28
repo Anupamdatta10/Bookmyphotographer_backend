@@ -2,12 +2,14 @@ import { Injectable, NotFoundException, BadRequestException, ConflictException }
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types, FilterQuery } from 'mongoose';
 import { Booking, BookingDocument, BookingStatus } from '../schemas/booking.schema';
+import { User, UserDocument } from '../schemas/user.schema';
 import { CreateBookingDto, UpdateBookingDto, BookingQueryDto } from './dto/booking.dto';
 
 @Injectable()
 export class BookingsService {
   constructor(
     @InjectModel(Booking.name) private bookingModel: Model<BookingDocument>,
+    @InjectModel(User.name) private userModel: Model<UserDocument>,
   ) {}
 
   async create(createBookingDto: CreateBookingDto): Promise<BookingDocument> {
@@ -22,25 +24,33 @@ export class BookingsService {
       // Check for conflicting bookings (same photographer, same date/time) for each event date
       const durationHours = createBookingDto.durationHours || 1;
     
+      const photographer = await this.userModel.findOne({
+        _id: createBookingDto.photographerId,
+        deletedAt: { $exists: false },
+      }).select('occupiedDates').lean().exec();
+
       for (const eventDate of createBookingDto.eventDate) {
         const date = new Date(eventDate);
         const endDate = new Date(date.getTime() + durationHours * 60 * 60 * 1000);
+        const dateKey = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate())).getTime();
+        const isOccupied = (photographer?.occupiedDates || []).some((occupiedDate) => {
+          const occupied = new Date(occupiedDate);
+          return new Date(Date.UTC(occupied.getUTCFullYear(), occupied.getUTCMonth(), occupied.getUTCDate())).getTime() === dateKey;
+        });
+        if (isOccupied) {
+          throw new ConflictException(`Photographer is not available on ${date.toISOString()}`);
+        }
 
         const conflictingBooking = await this.bookingModel.findOne({
           photographerId: createBookingDto.photographerId,
           status: { $in: [BookingStatus.PENDING, BookingStatus.CONFIRMED, BookingStatus.IN_PROGRESS] },
           deletedAt: { $exists: false },
-          $or: [
-            { eventDate: { $elemMatch: { $lt: endDate, $gte: date } } },
-            {
-              $expr: {
-                $lt: [
-                  { $add: ['$eventDate', { $multiply: ['$durationHours', 3600000] }] },
-                  endDate,
-                ],
-              },
+          eventDate: {
+            $elemMatch: {
+              $gte: new Date(date.getTime() - 24 * 60 * 60 * 1000),
+              $lt: endDate,
             },
-          ],
+          },
         }).exec();
 
         if (conflictingBooking) {
@@ -64,6 +74,7 @@ export class BookingsService {
       photographerId,
       userId,
       status,
+      search,
       startDate,
       endDate,
       sortBy = 'eventDate',
@@ -89,6 +100,25 @@ export class BookingsService {
 
     if (status) {
       filter.status = status;
+    }
+
+    const searchText = search?.trim();
+    if (searchText) {
+      const escapedSearch = searchText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const searchPattern = new RegExp(escapedSearch, 'i');
+      const matchingUsers = await this.userModel
+        .find({ $or: [{ name: searchPattern }, { email: searchPattern }] }, '_id')
+        .lean()
+        .exec();
+      const searchConditions: FilterQuery<BookingDocument>[] = [
+        { eventLocation: searchPattern },
+        { photographerId: { $in: matchingUsers.map((user) => user._id) } },
+        { userId: { $in: matchingUsers.map((user) => user._id) } },
+      ];
+      if (Types.ObjectId.isValid(searchText)) {
+        searchConditions.push({ _id: new Types.ObjectId(searchText) });
+      }
+      filter.$or = searchConditions;
     }
 
     if (startDate || endDate) {
@@ -161,14 +191,7 @@ export class BookingsService {
       throw new BadRequestException('Invalid booking ID');
     }
 
-    // If status is being updated to confirmed, set confirmedAt
     const updateData: Record<string, unknown> = { ...updateBookingDto };
-    if (updateBookingDto.status === BookingStatus.CONFIRMED) {
-      updateData.confirmedAt = new Date();
-    }
-    if (updateBookingDto.status === BookingStatus.COMPLETED) {
-      updateData.completedAt = new Date();
-    }
 
     // If photographerId is being updated, validate it
     if (updateBookingDto.photographerId) {
@@ -231,7 +254,65 @@ export class BookingsService {
   }
 
   async updateStatus(id: string, status: BookingStatus): Promise<BookingDocument> {
-    return this.update(id, { status });
+    if (!Types.ObjectId.isValid(id)) {
+      throw new BadRequestException('Invalid booking ID');
+    }
+    if (![BookingStatus.CONFIRMED, BookingStatus.REJECTED, BookingStatus.CANCELLED, BookingStatus.COMPLETED].includes(status)) {
+      throw new BadRequestException('Status can only be confirmed, rejected, cancelled, or completed');
+    }
+
+    const booking = await this.bookingModel
+      .findOne({ _id: id, deletedAt: { $exists: false } })
+      .exec();
+    if (!booking) {
+      throw new NotFoundException(`Booking with ID ${id} not found`);
+    }
+
+    const currentStatus = booking.status;
+    const allowedTransitions: Record<BookingStatus, BookingStatus[]> = {
+      [BookingStatus.PENDING]: [BookingStatus.CONFIRMED, BookingStatus.REJECTED, BookingStatus.CANCELLED],
+      [BookingStatus.CONFIRMED]: [BookingStatus.COMPLETED, BookingStatus.CANCELLED],
+      [BookingStatus.IN_PROGRESS]: [BookingStatus.COMPLETED, BookingStatus.CANCELLED],
+      [BookingStatus.COMPLETED]: [],
+      [BookingStatus.CANCELLED]: [],
+      [BookingStatus.REJECTED]: [],
+    };
+    if (!allowedTransitions[currentStatus]?.includes(status)) {
+      throw new BadRequestException(`Booking status cannot change from ${currentStatus} to ${status}`);
+    }
+
+    const updateData: Partial<Booking> = { status };
+    if (status === BookingStatus.COMPLETED) {
+      updateData.completedAt = new Date();
+    }
+    if (status === BookingStatus.CONFIRMED) {
+      updateData.confirmedAt = new Date();
+      const occupiedDates = [...new Set(booking.eventDate.map((date) => {
+        const eventDate = new Date(date);
+        return new Date(Date.UTC(eventDate.getUTCFullYear(), eventDate.getUTCMonth(), eventDate.getUTCDate())).toISOString();
+      }))].map((date) => new Date(date));
+
+      await this.userModel.findOneAndUpdate(
+        { _id: booking.photographerId, deletedAt: { $exists: false } },
+        { $addToSet: { occupiedDates: { $each: occupiedDates } } },
+        { new: true },
+      ).exec();
+    }
+
+    const updatedBooking = await this.bookingModel
+      .findOneAndUpdate(
+        { _id: id, deletedAt: { $exists: false } },
+        updateData,
+        { new: true, runValidators: true },
+      )
+      .populate('photographerId', 'name email phone profileImageUrl occupiedDates')
+      .populate('userId', 'name email phone')
+      .exec();
+
+    if (!updatedBooking) {
+      throw new NotFoundException(`Booking with ID ${id} not found`);
+    }
+    return updatedBooking;
   }
 
   async remove(id: string): Promise<void> {
@@ -258,6 +339,7 @@ export class BookingsService {
     inProgress: number;
     completed: number;
     cancelled: number;
+    rejected: number;
     totalRevenue: number;
   }> {
     const filter: FilterQuery<BookingDocument> = { deletedAt: { $exists: false } };
@@ -268,13 +350,14 @@ export class BookingsService {
       filter.photographerId = new Types.ObjectId(photographerId);
     }
 
-    const [total, pending, confirmed, inProgress, completed, cancelled, revenueStats] = await Promise.all([
+    const [total, pending, confirmed, inProgress, completed, cancelled, rejected, revenueStats] = await Promise.all([
       this.bookingModel.countDocuments(filter).exec(),
       this.bookingModel.countDocuments({ ...filter, status: BookingStatus.PENDING }).exec(),
       this.bookingModel.countDocuments({ ...filter, status: BookingStatus.CONFIRMED }).exec(),
       this.bookingModel.countDocuments({ ...filter, status: BookingStatus.IN_PROGRESS }).exec(),
       this.bookingModel.countDocuments({ ...filter, status: BookingStatus.COMPLETED }).exec(),
       this.bookingModel.countDocuments({ ...filter, status: BookingStatus.CANCELLED }).exec(),
+      this.bookingModel.countDocuments({ ...filter, status: BookingStatus.REJECTED }).exec(),
       this.bookingModel.aggregate([
         { $match: { ...filter, status: { $in: [BookingStatus.CONFIRMED, BookingStatus.COMPLETED] } } },
         { $group: { _id: null, totalRevenue: { $sum: '$totalPrice' } } },
@@ -288,6 +371,7 @@ export class BookingsService {
       inProgress,
       completed,
       cancelled,
+      rejected,
       totalRevenue: revenueStats[0]?.totalRevenue || 0,
     };
   }

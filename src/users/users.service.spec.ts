@@ -59,6 +59,11 @@ describe('UsersService registration flow', () => {
 
     await expect(service.verifyRegistrationOtp('PERSON@example.com', '123456')).resolves.toEqual({
       message: 'Email verified successfully',
+      data: {
+        email: 'person@example.com',
+        name: 'Person Name',
+        type: undefined,
+      },
     });
 
     expect(query.select).toHaveBeenCalledWith('+passwordHash');
@@ -96,6 +101,8 @@ describe('UsersService registration flow', () => {
           phone: '+1234567890',
           city: null,
           country: null,
+          district: null,
+          state: null,
           address1: null,
           address2: null,
           location: { type: 'Point', coordinates: [-122.4194, 37.7749] },

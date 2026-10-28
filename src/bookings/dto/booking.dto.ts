@@ -63,11 +63,6 @@ export class UpdateBookingDto {
   @IsString()
   eventLocation?: string;
 
-  @ApiPropertyOptional({ enum: BookingStatus, example: BookingStatus.CONFIRMED })
-  @IsOptional()
-  @IsEnum(BookingStatus)
-  status?: BookingStatus;
-
   @ApiPropertyOptional({ example: 4 })
   @IsOptional()
   @Type(() => Number)
@@ -128,6 +123,11 @@ export class BookingQueryDto {
   @IsOptional()
   @IsEnum(BookingStatus)
   status?: BookingStatus;
+
+  @ApiPropertyOptional({ example: 'Wedding shoot' })
+  @IsOptional()
+  @IsString()
+  search?: string;
 
   @ApiPropertyOptional({ example: '2024-06-01T00:00:00.000Z' })
   @IsOptional()

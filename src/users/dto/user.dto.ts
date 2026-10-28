@@ -1,6 +1,6 @@
 import { ArrayUnique, IsString, IsEmail, IsOptional, IsEnum, MinLength, MaxLength, IsUrl, IsBoolean, Matches, IsNumber, Min, Max, IsArray, IsDateString, IsObject } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import { UserRole, UserStatus } from '../../schemas/user.schema';
 
 export class CreateUserDto {
@@ -125,16 +125,24 @@ export class CreateUserSecondDto {
 
   @ApiPropertyOptional({ example: 37.7749, type: Number })
   @IsOptional()
-  @Type(() => Number)
-  @IsNumber()
+  @Transform(({ value }) => {
+    if (value === '' || value === null || value === undefined || value === 'null' || value === 'undefined') return undefined;
+    const parsedValue = Number(value);
+    return Number.isFinite(parsedValue) ? parsedValue : NaN;
+  })
+  @IsNumber({}, { message: 'latitude must be a valid number' })
   @Min(-90)
   @Max(90)
   latitude?: number;
 
   @ApiPropertyOptional({ example: -122.4194, type: Number })
   @IsOptional()
-  @Type(() => Number)
-  @IsNumber()
+  @Transform(({ value }) => {
+    if (value === '' || value === null || value === undefined || value === 'null' || value === 'undefined') return undefined;
+    const parsedValue = Number(value);
+    return Number.isFinite(parsedValue) ? parsedValue : NaN;
+  })
+  @IsNumber({}, { message: 'longitude must be a valid number' })
   @Min(-180)
   @Max(180)
   longitude?: number;

@@ -11,11 +11,14 @@ import {
   ValidationPipe,
   HttpCode,
   HttpStatus,
+  UseGuards,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiQuery } from '@nestjs/swagger';
 import { BookingsService } from './bookings.service';
 import { CreateBookingDto, UpdateBookingDto, BookingQueryDto } from './dto/booking.dto';
 import { Booking, BookingStatus } from '../schemas/booking.schema';
+import { AdminSelfGuard } from '../admins/admin-auth.guard';
+import { ApiBearerAuth } from '@nestjs/swagger';
 
 @ApiTags('bookings')
 @Controller('bookings')
@@ -33,6 +36,8 @@ export class BookingsController {
   }
 
   @Get()
+  @UseGuards(AdminSelfGuard)
+  @ApiBearerAuth()
   @ApiOperation({ summary: 'Get all bookings with pagination and filters' })
   @ApiResponse({ status: 200, description: 'List of bookings with pagination info' })
   @UsePipes(new ValidationPipe({ transform: true }))
@@ -41,6 +46,8 @@ export class BookingsController {
   }
 
   @Get('stats')
+  @UseGuards(AdminSelfGuard)
+  @ApiBearerAuth()
   @ApiOperation({ summary: 'Get booking statistics' })
   @ApiQuery({ name: 'photographerId', required: false, description: 'Filter by photographer ID' })
   @ApiResponse({ status: 200, description: 'Booking statistics' })
@@ -95,6 +102,8 @@ export class BookingsController {
   }
 
   @Patch(':id')
+  @UseGuards(AdminSelfGuard)
+  @ApiBearerAuth()
   @ApiOperation({ summary: 'Update a booking' })
   @ApiParam({ name: 'id', description: 'Booking ID' })
   @ApiResponse({ status: 200, description: 'Booking updated successfully', type: Booking })
@@ -107,6 +116,8 @@ export class BookingsController {
   }
 
   @Patch(':id/status')
+  @UseGuards(AdminSelfGuard)
+  @ApiBearerAuth()
   @ApiOperation({ summary: 'Update booking status' })
   @ApiParam({ name: 'id', description: 'Booking ID' })
   @ApiResponse({ status: 200, description: 'Booking status updated successfully', type: Booking })

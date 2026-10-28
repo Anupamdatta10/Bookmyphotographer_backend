@@ -9,6 +9,7 @@ export enum BookingStatus {
   IN_PROGRESS = 'in_progress',
   COMPLETED = 'completed',
   CANCELLED = 'cancelled',
+  REJECTED = 'rejected',
 }
 
 @Schema({ timestamps: true, collection: 'bookings' })
