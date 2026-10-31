@@ -54,6 +54,7 @@ async function bootstrap() {
   console.log(`🚀 Application is running on: http://localhost:${port}`);
   console.log(`📚 Swagger docs available at: http://localhost:${port}/api/docs`);
   console.log(`🖼️  Static files served at: http://localhost:${port}/public`);
+  console.log(`🔒 CORS enabled for all origins`);
 }
 
 bootstrap();
