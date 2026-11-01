@@ -10,6 +10,7 @@ export const MAX_MEDIA_FILE_SIZE = 20 * 1024 * 1024;
 @Injectable()
 export class FileUploadService {
   private readonly uploadPath = join(process.cwd(), 'public', 'uploads');
+  private readonly confidentialPath = join(process.cwd(), 'public', 'confidential');
   private readonly allowedMimeTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
   private readonly allowedVideoMimeTypes = [
     'video/mp4',
@@ -34,12 +35,23 @@ export class FileUploadService {
     if (!existsSync(this.uploadPath)) {
       mkdirSync(this.uploadPath, { recursive: true });
     }
+    if (!existsSync(this.confidentialPath)) {
+      mkdirSync(this.confidentialPath, { recursive: true });
+    }
   }
 
   async uploadFile(file: Express.Multer.File, subfolder: string = ''): Promise<string> {
     this.validateFile(file);
 
     return this.saveUploadedFile(file, subfolder);
+  }
+
+  async uploadConfidentialFile(file: Express.Multer.File): Promise<string> {
+    this.validateFile(file);
+    const extension = this.getExtension(file.originalname);
+    const filename = `${randomUUID()}${extension}`;
+    await this.saveFile(file, join(this.confidentialPath, filename));
+    return `/public/confidential/${filename}`;
   }
 
   async uploadVideoFile(file: Express.Multer.File): Promise<string> {
@@ -91,6 +103,7 @@ export class FileUploadService {
         join(this.uploadPath, 'galleries', filename),
         join(this.uploadPath, 'hero_imgs', filename),
         join(this.uploadPath, 'partner-companies', filename),
+        join(this.confidentialPath, filename),
       ]);
 
       if (pathParts.length > 0) {

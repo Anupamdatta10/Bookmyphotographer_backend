@@ -115,7 +115,11 @@ export class UsersService {
     return randomInt(100000, 1000000).toString();
   }
 
-  async createSecondStep(createUserSecondDto: CreateUserSecondDto, file?: Express.Multer.File) {
+  async createSecondStep(
+    createUserSecondDto: CreateUserSecondDto,
+    file?: Express.Multer.File,
+    identityProof?: Express.Multer.File,
+  ) {
     const email = createUserSecondDto.email.toLowerCase();
     const existingUser = await this.userModel.findOne({ email, deletedAt: { $exists: false } }).exec();
     if (!existingUser) {
@@ -125,6 +129,12 @@ export class UsersService {
     const profileImageUrl = file
       ? await this.fileUploadService.uploadFile(file, 'profiles')
       : null;
+    if (existingUser.type === UserRole.PHOTOGRAPHER && !identityProof) {
+      throw new BadRequestException('Identity proof is required for photographer accounts');
+    }
+    const identityProofUrl = existingUser.type === UserRole.PHOTOGRAPHER && identityProof
+      ? await this.fileUploadService.uploadConfidentialFile(identityProof)
+      : existingUser.identityProofUrl || null;
     const hasCoordinates = createUserSecondDto.latitude !== undefined && createUserSecondDto.longitude !== undefined;
     const updateData = {
       ...(createUserSecondDto.type ? { type: createUserSecondDto.type } : {}),
@@ -142,6 +152,7 @@ export class UsersService {
           }
         : null,
       profileImageUrl,
+      ...(existingUser.type === UserRole.PHOTOGRAPHER ? { identityProofUrl } : {}),
     };
 
     const updatedUser = await this.userModel
@@ -385,6 +396,39 @@ export class UsersService {
       await this.fileUploadService.deleteFile(user.profileImageUrl);
     }
 
+    return updatedUser;
+  }
+
+  async updateIdentityProof(id: string, file?: Express.Multer.File): Promise<UserDocument> {
+    if (!Types.ObjectId.isValid(id)) {
+      throw new BadRequestException('Invalid user ID');
+    }
+    if (!file) {
+      throw new BadRequestException('Identity proof file is required');
+    }
+
+    const user = await this.userModel.findOne({
+      _id: id,
+      deletedAt: { $exists: false },
+      type: UserRole.PHOTOGRAPHER,
+    }).exec();
+    if (!user) {
+      throw new NotFoundException('Photographer not found');
+    }
+
+    const identityProofUrl = await this.fileUploadService.uploadConfidentialFile(file);
+    const updatedUser = await this.userModel.findOneAndUpdate(
+      { _id: id, deletedAt: { $exists: false }, type: UserRole.PHOTOGRAPHER },
+      { $set: { identityProofUrl } },
+      { new: true, runValidators: true },
+    ).select('-password').exec();
+    if (!updatedUser) {
+      await this.fileUploadService.deleteFile(identityProofUrl);
+      throw new NotFoundException('Photographer not found');
+    }
+    if (user.identityProofUrl) {
+      await this.fileUploadService.deleteFile(user.identityProofUrl);
+    }
     return updatedUser;
   }
 

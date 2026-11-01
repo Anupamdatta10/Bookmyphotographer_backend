@@ -55,6 +55,9 @@ export class User {
   profileImageUrl: string | null;
 
   @Prop({ type: String, default: '' })
+  identityProofUrl: string | null;
+
+  @Prop({ type: String, default: '' })
   profileVideoUrl: string | null;
 
   @Prop({ type: [String], default: [] })

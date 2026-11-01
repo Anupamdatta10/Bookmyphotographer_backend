@@ -13,10 +13,11 @@ import {
   HttpStatus,
   UseInterceptors,
   UploadedFile,
+  UploadedFiles,
   Res,
   UseGuards,
 } from '@nestjs/common';
-import { FileInterceptor } from '@nestjs/platform-express';
+import { FileFieldsInterceptor, FileInterceptor } from '@nestjs/platform-express';
 import { Response } from 'express';
 import {
   ApiTags,
@@ -100,13 +101,36 @@ export class UsersController {
   })
   @ApiResponse({ status: 201, description: 'User second step data received' })
   @ApiResponse({ status: 400, description: 'Bad request - validation error' })
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(
+    FileFieldsInterceptor([
+      { name: 'file', maxCount: 1 },
+      { name: 'identityProof', maxCount: 1 },
+    ]),
+  )
   @UsePipes(new ValidationPipe({ transform: true }))
   async createSecond(
     @Body() createUserSecondDto: CreateUserSecondDto,
-    @UploadedFile() file?: Express.Multer.File,
-  ) {
-    return this.usersService.createSecondStep(createUserSecondDto, file);
+    @UploadedFiles()
+    files?: { file?: Express.Multer.File[]; identityProof?: Express.Multer.File[] },
+  ): Promise<any> {
+    const result = await this.usersService.createSecondStep(
+      createUserSecondDto,
+      files?.file?.[0],
+      files?.identityProof?.[0],
+    );
+    const accessToken = await this.jwtService.signAsync({
+      sub: String(result.data._id),
+      type: result.data.type,
+      accountCollection: 'users',
+    });
+    return {
+      ...result,
+      accessToken,
+      data: {
+        ...result.data.toJSON(),
+        accessToken,
+      },
+    };
   }             
 
   @Post('login')
@@ -243,6 +267,19 @@ export class UsersController {
     @UploadedFile() file?: Express.Multer.File,
   ): Promise<User> {
     return this.usersService.updateProfilePicture(id, file);
+  }
+
+  @Patch(':id/identity-proof')
+  @UseGuards(UserAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Update a photographer identity proof image' })
+  @ApiConsumes('multipart/form-data')
+  @UseInterceptors(FileInterceptor('identityProof'))
+  async updateIdentityProof(
+    @Param('id') id: string,
+    @UploadedFile() file?: Express.Multer.File,
+  ): Promise<User> {
+    return this.usersService.updateIdentityProof(id, file);
   }
 
   @Delete(':id/profile-picture')
