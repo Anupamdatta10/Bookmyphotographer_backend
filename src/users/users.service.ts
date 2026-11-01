@@ -27,6 +27,9 @@ export class UsersService {
   async sendRegistrationOtp(createUserFirstDto: CreateUserFirstDto): Promise<{ message: string }> {
     const email = createUserFirstDto.email.toLowerCase();
     const type = createUserFirstDto.type;
+    if (type === UserRole.PARTNER && !/^\d{10}$/.test(createUserFirstDto.phone || '')) {
+      throw new BadRequestException('A valid 10-digit phone number is required for partner accounts');
+    }
     const existingUser = await this.userModel.findOne({ email, deletedAt: { $exists: false } }).exec();
     if (existingUser) {
       throw new ConflictException('User with this email already exists');
@@ -37,7 +40,7 @@ export class UsersService {
     const passwordHash = await bcrypt.hash(createUserFirstDto.password, 12);
     await this.registrationOtpModel.findOneAndUpdate(
       { email },
-      { otp, name: createUserFirstDto.name, type,passwordHash, expiresAt },
+      { otp, name: createUserFirstDto.name, type, phone: createUserFirstDto.phone, passwordHash, expiresAt },
       { upsert: true, new: true, setDefaultsOnInsert: true },
     ).exec();
 
@@ -99,12 +102,13 @@ export class UsersService {
       name: record.name,
       email: record.email,
       password: record.passwordHash,
-      type: record.type
+      type: record.type,
+      ...(record.phone ? { phone: record.phone } : {}),
     });
     await user.save();
     await this.registrationOtpModel.deleteOne({ _id: record._id }).exec();
     return { message: 'Email verified successfully', data:{ name: record.name,
-      email: record.email, type: record.type} };
+      email: record.email, type: record.type, ...(record.phone ? { phone: record.phone } : {})} };
   }
 
   private generateOtp(): string {
@@ -412,8 +416,8 @@ export class UsersService {
     if (!Types.ObjectId.isValid(id)) {
       throw new BadRequestException('Invalid photographer ID');
     }
-    if (!Number.isInteger(slot) || slot < 0 || slot > 1) {
-      throw new BadRequestException('Video slot must be 0 or 1');
+    if (!Number.isInteger(slot) || slot < 0 || slot > 4) {
+      throw new BadRequestException('Media slot must be between 0 and 4');
     }
     if (!file) {
       throw new BadRequestException('Profile video file is required');
@@ -437,7 +441,7 @@ export class UsersService {
       ? user.profileVideoUrls?.[0] || user.profileVideoUrl
       : user.profileVideoUrls?.[slot];
     const previousVideoUrl = previousVideo?.videoUrl || legacyVideoUrl;
-    const videoUrl = await this.fileUploadService.uploadVideoFile(file);
+    const videoUrl = await this.fileUploadService.uploadMediaFile(file);
     const videoName = basename(videoUrl);
 
     let savedVideo: ProfileVideoDocument | null;
@@ -499,8 +503,8 @@ export class UsersService {
     if (!Types.ObjectId.isValid(id)) {
       throw new BadRequestException('Invalid photographer ID');
     }
-    if (!Number.isInteger(slot) || slot < 0 || slot > 1) {
-      throw new BadRequestException('Video slot must be 0 or 1');
+    if (!Number.isInteger(slot) || slot < 0 || slot > 4) {
+      throw new BadRequestException('Media slot must be between 0 and 4');
     }
 
     const user = await this.userModel

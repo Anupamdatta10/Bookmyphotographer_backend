@@ -161,7 +161,7 @@ export class UsersController {
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Remove a photographer profile video slot' })
   @ApiParam({ name: 'id', description: 'Photographer user ID' })
-  @ApiParam({ name: 'slot', description: 'Video slot (0 or 1)' })
+  @ApiParam({ name: 'slot', description: 'Media slot (0 to 4)' })
   @ApiResponse({ status: 204, description: 'Profile video removed successfully' })
   @ApiResponse({ status: 400, description: 'Invalid photographer ID or video slot' })
   @ApiResponse({ status: 404, description: 'Photographer not found' })
@@ -268,7 +268,7 @@ export class UsersController {
     },
   })
   @ApiParam({ name: 'id', description: 'Photographer user ID' })
-  @ApiParam({ name: 'slot', description: 'Video slot (0 or 1)' })
+  @ApiParam({ name: 'slot', description: 'Media slot (0 to 4)' })
   @ApiResponse({ status: 200, description: 'Profile video updated successfully', type: ProfileVideo })
   @UseInterceptors(
     FileInterceptor('file', { limits: { fileSize: MAX_VIDEO_FILE_SIZE } }),

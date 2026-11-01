@@ -28,13 +28,6 @@ export class CreateBookingDto {
   @Min(1)
   durationHours?: number;
 
-  @ApiPropertyOptional({ example: 600 })
-  @IsOptional()
-  @Type(() => Number)
-  @IsNumber()
-  @Min(0)
-  totalPrice?: number;
-
   @ApiPropertyOptional({ example: 'Outdoor wedding ceremony' })
   @IsOptional()
   @IsString()

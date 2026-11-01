@@ -17,12 +17,14 @@ import {
   PartnerCompanyQueryDto,
   UpdatePartnerCompanyDto,
 } from './dto/partner-company.dto';
+import { FileUploadService } from '../common/services/file-upload.service';
 
 @Injectable()
 export class PartnerCompaniesService implements OnModuleInit {
   constructor(
     @InjectModel(PartnerCompany.name)
     private readonly partnerCompanyModel: Model<PartnerCompanyDocument>,
+    private readonly fileUploadService: FileUploadService,
   ) {}
 
   async onModuleInit(): Promise<void> {
@@ -37,7 +39,7 @@ export class PartnerCompaniesService implements OnModuleInit {
     const partner = new this.partnerCompanyModel({
       ...createDto,
       name: createDto.name.trim(),
-      icon: createDto.icon?.trim() || '★',
+      imageUrl: createDto.imageUrl?.trim() || '',
     });
     return partner.save();
   }
@@ -90,8 +92,8 @@ export class PartnerCompaniesService implements OnModuleInit {
     const updateData = {
       ...updateDto,
       ...(updateDto.name ? { name: updateDto.name.trim() } : {}),
-      ...(updateDto.icon !== undefined
-        ? { icon: updateDto.icon.trim() || '★' }
+      ...(updateDto.imageUrl !== undefined
+        ? { imageUrl: updateDto.imageUrl.trim() }
         : {}),
     };
     const partner = await this.partnerCompanyModel
@@ -121,6 +123,54 @@ export class PartnerCompaniesService implements OnModuleInit {
     if (!partner) {
       throw new NotFoundException(`Partner company with ID ${id} not found`);
     }
+    await this.removeStoredImage(partner.imageUrl);
+  }
+
+  async uploadImage(
+    id: string,
+    file: Express.Multer.File,
+  ): Promise<PartnerCompanyDocument> {
+    const partner = await this.findOne(id);
+    const imageUrl = await this.fileUploadService.uploadFile(
+      file,
+      'partner-companies',
+    );
+    const oldImageUrl = partner.imageUrl;
+    const updated = await this.partnerCompanyModel
+      .findOneAndUpdate(
+        { _id: id, deletedAt: { $exists: false } },
+        { imageUrl },
+        { new: true, runValidators: true },
+      )
+      .exec();
+    if (!updated) {
+      await this.fileUploadService.deleteFile(imageUrl);
+      throw new NotFoundException(`Partner company with ID ${id} not found`);
+    }
+    if (oldImageUrl && oldImageUrl !== imageUrl) {
+      await this.fileUploadService.deleteFile(oldImageUrl);
+    }
+    return updated;
+  }
+
+  async removeImage(id: string): Promise<PartnerCompanyDocument> {
+    const partner = await this.findOne(id);
+    const updated = await this.partnerCompanyModel
+      .findOneAndUpdate(
+        { _id: id, deletedAt: { $exists: false } },
+        { imageUrl: '' },
+        { new: true, runValidators: true },
+      )
+      .exec();
+    if (!updated) {
+      throw new NotFoundException(`Partner company with ID ${id} not found`);
+    }
+    await this.removeStoredImage(partner.imageUrl);
+    return updated;
+  }
+
+  private async removeStoredImage(imageUrl?: string): Promise<void> {
+    if (imageUrl) await this.fileUploadService.deleteFile(imageUrl);
   }
 
   private async ensureUniqueName(name: string, excludedId?: string): Promise<void> {
