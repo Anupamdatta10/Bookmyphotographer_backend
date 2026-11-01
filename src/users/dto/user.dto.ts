@@ -231,6 +231,12 @@ export class UpdateUserDto {
   @IsString({ each: true })
   specialties?: string[];
 
+  @ApiPropertyOptional({ example: ['English', 'Hindi'], type: [String] })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  languages?: string[];
+
   @ApiPropertyOptional({ example: 'Photographer based in California' })
   @IsOptional()
   @IsString()
