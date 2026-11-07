@@ -25,6 +25,7 @@ describe('UsersService registration flow', () => {
     fileUploadService = {
       uploadFile: jest.fn(),
       uploadVideoFile: jest.fn(),
+      uploadMediaFile: jest.fn(),
       deleteFile: jest.fn(),
     };
     profileVideoModel = {
@@ -272,7 +273,7 @@ describe('UsersService registration flow', () => {
     profileVideoModel.findOneAndUpdate.mockReturnValue({
       exec: jest.fn().mockResolvedValue(savedVideo),
     });
-    fileUploadService.uploadVideoFile.mockResolvedValue(uploadedVideoUrl);
+    fileUploadService.uploadMediaFile.mockResolvedValue(uploadedVideoUrl);
 
     await expect(
       service.updateProfileVideo(userId, 1, {
@@ -282,7 +283,7 @@ describe('UsersService registration flow', () => {
       } as Express.Multer.File),
     ).resolves.toBe(savedVideo);
 
-    expect(fileUploadService.uploadVideoFile).toHaveBeenCalled();
+    expect(fileUploadService.uploadMediaFile).toHaveBeenCalled();
     expect(profileVideoModel.findOneAndUpdate).toHaveBeenCalledWith(
       { userId: user._id, slot: 1 },
       {
@@ -306,14 +307,14 @@ describe('UsersService registration flow', () => {
     );
   });
 
-  it('rejects profile video slots outside the two available slots', async () => {
+  it('rejects profile media slots outside the five available slots', async () => {
     await expect(
-      service.updateProfileVideo('65a000000000000000000007', 2, {
+      service.updateProfileVideo('65a000000000000000000007', 5, {
         originalname: 'new-video.mp4',
         mimetype: 'video/mp4',
         size: 1024,
       } as Express.Multer.File),
-    ).rejects.toThrow('Video slot must be 0 or 1');
+    ).rejects.toThrow('Media slot must be between 0 and 4');
   });
 
   it('loads profile video records in slot order', async () => {

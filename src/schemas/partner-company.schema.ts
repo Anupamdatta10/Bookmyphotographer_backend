@@ -13,8 +13,8 @@ export class PartnerCompany {
   @Prop({ type: String, required: true, trim: true, maxlength: 80 })
   name: string;
 
-  @Prop({ type: String, default: '★', trim: true, maxlength: 8 })
-  icon: string;
+  @Prop({ type: String, default: '', trim: true, maxlength: 2048 })
+  imageUrl: string;
 
   @Prop({ type: String, required: true, trim: true, maxlength: 120 })
   description: string;

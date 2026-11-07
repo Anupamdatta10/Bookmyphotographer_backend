@@ -172,8 +172,9 @@ describe('PhotographersService', () => {
       const districtCityFilter = filter.$and[0].$or[1].city.$in;
       expect(districtCityFilter[0].test('Cooch Behar')).toBe(true);
       expect(districtCityFilter[0].test('Cooch Behar town')).toBe(true);
-      expect(filter.$or[0].name.test('John.* Doe')).toBe(true);
-      expect(filter.$or[0].name.test('JohnXX Doe')).toBe(false);
+      expect(filter.name.test('John.* Doe')).toBe(true);
+      expect(filter.name.test('JohnXX Doe')).toBe(false);
+      expect(filter.name.test('Jane Doe')).toBe(false);
     });
 
     it('matches selected district cities when photographer district is not populated', async () => {

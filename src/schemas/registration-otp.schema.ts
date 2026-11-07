@@ -20,6 +20,9 @@ export class RegistrationOtp {
   @Prop({required:true,trim:true})
   type:string
 
+  @Prop({ trim: true })
+  phone?: string;
+
   @Prop({ required: true })
   expiresAt: Date;
 }

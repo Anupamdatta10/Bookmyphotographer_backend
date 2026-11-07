@@ -84,16 +84,7 @@ export class PhotographersService {
 
     if (search?.trim()) {
       const searchRegex = new RegExp(escapeRegex(search.trim()), 'i');
-      filter.$or = [
-        { name: searchRegex },
-        { email: searchRegex },
-        { city: searchRegex },
-        { state: searchRegex },
-        { country: searchRegex },
-        { bio: searchRegex },
-        { proffession: searchRegex },
-        { specialties: { $in: [searchRegex] } },
-      ];
+      filter.name = searchRegex;
     }
 
     if (district) {

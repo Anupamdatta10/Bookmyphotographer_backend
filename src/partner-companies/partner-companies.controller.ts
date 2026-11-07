@@ -12,7 +12,10 @@ import {
   UsePipes,
   ValidationPipe,
   UseGuards,
+  UploadedFile,
+  UseInterceptors,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import {
   ApiOperation,
   ApiParam,
@@ -77,6 +80,27 @@ export class PartnerCompaniesController {
     @Body() updateDto: UpdatePartnerCompanyDto,
   ) {
     return this.partnerCompaniesService.update(id, updateDto);
+  }
+
+  @Patch(':id/image')
+  @UseGuards(AdminSelfGuard)
+  @ApiBearerAuth()
+  @UseInterceptors(
+    FileInterceptor('image', { limits: { fileSize: 5 * 1024 * 1024 } }),
+  )
+  uploadImage(
+    @Param('id') id: string,
+    @UploadedFile() image: Express.Multer.File,
+  ) {
+    return this.partnerCompaniesService.uploadImage(id, image);
+  }
+
+  @Delete(':id/image')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(AdminSelfGuard)
+  @ApiBearerAuth()
+  removeImage(@Param('id') id: string) {
+    return this.partnerCompaniesService.removeImage(id);
   }
 
   @Delete(':id')

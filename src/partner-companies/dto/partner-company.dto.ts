@@ -9,11 +9,11 @@ export class CreatePartnerCompanyDto {
   @MaxLength(80)
   name: string;
 
-  @ApiPropertyOptional({ example: 'NW', maxLength: 8 })
+  @ApiPropertyOptional({ example: '/public/uploads/partner-companies/logo.png' })
   @IsOptional()
   @IsString()
-  @MaxLength(8)
-  icon?: string;
+  @MaxLength(2048)
+  imageUrl?: string;
 
   @ApiProperty({ example: 'Planning the moments that matter', maxLength: 120 })
   @IsString()
@@ -53,11 +53,11 @@ export class UpdatePartnerCompanyDto {
   @MaxLength(80)
   name?: string;
 
-  @ApiPropertyOptional({ example: 'NW', maxLength: 8 })
+  @ApiPropertyOptional({ example: '/public/uploads/partner-companies/logo.png' })
   @IsOptional()
   @IsString()
-  @MaxLength(8)
-  icon?: string;
+  @MaxLength(2048)
+  imageUrl?: string;
 
   @ApiPropertyOptional({ example: 'Planning the moments that matter', maxLength: 120 })
   @IsOptional()

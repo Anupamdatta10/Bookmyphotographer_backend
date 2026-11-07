@@ -8,7 +8,7 @@ export class ProfileVideo {
   @Prop({ type: Types.ObjectId, ref: 'User', required: true, index: true })
   userId: Types.ObjectId;
 
-  @Prop({ type: Number, required: true, min: 0, max: 1 })
+  @Prop({ type: Number, required: true, min: 0, max: 4 })
   slot: number;
 
   @Prop({ type: String, required: true, unique: true })

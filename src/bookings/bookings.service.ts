@@ -1,6 +1,8 @@
 import { Injectable, NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types, FilterQuery } from 'mongoose';
+import * as nodemailer from 'nodemailer';
 import { Booking, BookingDocument, BookingStatus } from '../schemas/booking.schema';
 import { User, UserDocument } from '../schemas/user.schema';
 import { CreateBookingDto, UpdateBookingDto, BookingQueryDto } from './dto/booking.dto';
@@ -10,7 +12,106 @@ export class BookingsService {
   constructor(
     @InjectModel(Booking.name) private bookingModel: Model<BookingDocument>,
     @InjectModel(User.name) private userModel: Model<UserDocument>,
+    private readonly configService: ConfigService,
   ) {}
+
+  private escapeHtml(value: unknown): string {
+    return String(value ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
+
+  private async sendStatusEmail(booking: BookingDocument): Promise<void> {
+    const user = booking.userId as unknown as { name?: string; email?: string };
+    if (!user?.email) return;
+
+    const sender = this.configService?.get<string>('EMAIL');
+    const password = this.configService?.get<string>('EMAIL_PASSWORD');
+    if (!sender || !password) {
+      console.error('Booking status email not sent: email settings are missing');
+      return;
+    }
+
+    const status = String(booking.status);
+    const statusLabel = status.charAt(0).toUpperCase() + status.slice(1);
+    const photographer = booking.photographerId as unknown as { name?: string };
+    const statusContent: Record<string, { title: string; message: string; color: string }> = {
+      confirmed: {
+        title: 'Your booking is confirmed',
+        message: 'Your photographer has confirmed the booking. We look forward to helping you create wonderful memories.',
+        color: '#16877e',
+      },
+      rejected: {
+        title: 'Booking update: rejected',
+        message: 'Unfortunately, this booking request could not be accepted. Please contact support or choose another photographer.',
+        color: '#c7443e',
+      },
+      completed: {
+        title: 'Your booking is complete',
+        message: 'Thank you for using BookMyPhotographer. We hope your photography session was a great experience.',
+        color: '#1565c0',
+      },
+      cancelled: {
+        title: 'Your booking has been cancelled',
+        message: 'This booking has been cancelled. Contact support if you need assistance.',
+        color: '#7b8794',
+      },
+    };
+    const content = statusContent[status] || {
+      title: `Booking status updated to ${statusLabel}`,
+      message: 'The status of your booking has changed.',
+      color: '#16877e',
+    };
+    const eventDates = Array.isArray(booking.eventDate)
+      ? booking.eventDate.map((date) => new Date(date).toLocaleDateString('en-IN', {
+          day: '2-digit', month: 'short', year: 'numeric',
+        })).join(', ')
+      : 'N/A';
+
+    try {
+      const transporter = nodemailer.createTransport({
+        service: 'gmail',
+        auth: { user: sender, pass: password },
+      });
+      await transporter.sendMail({
+        from: `BookMyPhotographer <${sender}>`,
+        to: user.email,
+        subject: `${content.title} - Booking #${String(booking._id).slice(-8).toUpperCase()}`,
+        html: `
+          <div style="margin:0;background:#f4f7fa;padding:32px 12px;font-family:Arial,sans-serif;color:#2c4357;">
+            <div style="max-width:600px;margin:auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 8px 30px rgba(23,46,67,.08);">
+              <div style="background:#173b4d;padding:28px 32px;color:#fff;">
+                <div style="font-size:20px;font-weight:700;">BookMyPhotographer</div>
+                <div style="margin-top:6px;font-size:13px;color:#d9e8ef;">Booking notification</div>
+              </div>
+              <div style="padding:32px;">
+                <p style="margin:0 0 20px;">Hello ${this.escapeHtml(user.name || 'Customer')},</p>
+                <div style="border-left:4px solid ${content.color};background:${content.color}12;padding:18px 20px;border-radius:4px;">
+                  <div style="font-size:20px;font-weight:700;color:${content.color};">${content.title}</div>
+                  <p style="margin:10px 0 0;line-height:1.6;color:#52697a;">${this.escapeHtml(content.message)}</p>
+                </div>
+                <table style="width:100%;margin-top:24px;border-collapse:collapse;font-size:14px;">
+                  <tr><td style="padding:10px 0;color:#7b8d9c;">Booking ID</td><td style="padding:10px 0;text-align:right;font-weight:700;">#${String(booking._id).slice(-8).toUpperCase()}</td></tr>
+                  <tr><td style="padding:10px 0;color:#7b8d9c;border-top:1px solid #edf1f4;">Current status</td><td style="padding:10px 0;text-align:right;border-top:1px solid #edf1f4;color:${content.color};font-weight:700;">${statusLabel}</td></tr>
+                  <tr><td style="padding:10px 0;color:#7b8d9c;border-top:1px solid #edf1f4;">Photographer</td><td style="padding:10px 0;text-align:right;border-top:1px solid #edf1f4;font-weight:700;">${this.escapeHtml(photographer?.name || 'N/A')}</td></tr>
+                  <tr><td style="padding:10px 0;color:#7b8d9c;border-top:1px solid #edf1f4;">Event date</td><td style="padding:10px 0;text-align:right;border-top:1px solid #edf1f4;">${this.escapeHtml(eventDates)}</td></tr>
+                  <tr><td style="padding:10px 0;color:#7b8d9c;border-top:1px solid #edf1f4;">Location</td><td style="padding:10px 0;text-align:right;border-top:1px solid #edf1f4;">${this.escapeHtml(booking.eventLocation || 'N/A')}</td></tr>
+                </table>
+              </div>
+              <div style="padding:20px 32px;background:#f8fafc;color:#8798a5;font-size:12px;text-align:center;">
+                This is an automated booking update from BookMyPhotographer.
+              </div>
+            </div>
+          </div>
+        `,
+      });
+    } catch (error) {
+      console.error('Booking status email failed:', error);
+    }
+  }
 
   async create(createBookingDto: CreateBookingDto): Promise<BookingDocument> {
     // Validate photographer and user IDs
@@ -68,8 +169,10 @@ export class BookingsService {
         }
       }
 
+      const bookingDetails = { ...createBookingDto } as CreateBookingDto & { totalPrice?: number };
+      delete bookingDetails.totalPrice;
       const createdBooking = new this.bookingModel({
-        ...createBookingDto,
+        ...bookingDetails,
         photographerId: new Types.ObjectId(createBookingDto.photographerId),
         userId: new Types.ObjectId(createBookingDto.userId),
       });
@@ -327,6 +430,7 @@ export class BookingsService {
     if (!updatedBooking) {
       throw new NotFoundException(`Booking with ID ${id} not found`);
     }
+    await this.sendStatusEmail(updatedBooking);
     return updatedBooking;
   }
 

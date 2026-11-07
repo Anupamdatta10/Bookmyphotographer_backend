@@ -27,6 +27,9 @@ export class UsersService {
   async sendRegistrationOtp(createUserFirstDto: CreateUserFirstDto): Promise<{ message: string }> {
     const email = createUserFirstDto.email.toLowerCase();
     const type = createUserFirstDto.type;
+    if (type === UserRole.PARTNER && !/^\d{10}$/.test(createUserFirstDto.phone || '')) {
+      throw new BadRequestException('A valid 10-digit phone number is required for partner accounts');
+    }
     const existingUser = await this.userModel.findOne({ email, deletedAt: { $exists: false } }).exec();
     if (existingUser) {
       throw new ConflictException('User with this email already exists');
@@ -37,7 +40,7 @@ export class UsersService {
     const passwordHash = await bcrypt.hash(createUserFirstDto.password, 12);
     await this.registrationOtpModel.findOneAndUpdate(
       { email },
-      { otp, name: createUserFirstDto.name, type, passwordHash, expiresAt },
+      { otp, name: createUserFirstDto.name, type, phone: createUserFirstDto.phone, passwordHash, expiresAt },
       { upsert: true, new: true, setDefaultsOnInsert: true },
     ).exec();
 
@@ -151,23 +154,24 @@ export class UsersService {
       name: record.name,
       email: record.email,
       password: record.passwordHash,
-      type: record.type
+      type: record.type,
+      ...(record.phone ? { phone: record.phone } : {}),
     });
     await user.save();
     await this.registrationOtpModel.deleteOne({ _id: record._id }).exec();
-    return {
-      message: 'Email verified successfully', data: {
-        name: record.name,
-        email: record.email, type: record.type
-      }
-    };
+    return { message: 'Email verified successfully', data:{ name: record.name,
+      email: record.email, type: record.type, ...(record.phone ? { phone: record.phone } : {})} };
   }
 
   private generateOtp(): string {
     return randomInt(100000, 1000000).toString();
   }
 
-  async createSecondStep(createUserSecondDto: CreateUserSecondDto, file?: Express.Multer.File) {
+  async createSecondStep(
+    createUserSecondDto: CreateUserSecondDto,
+    file?: Express.Multer.File,
+    identityProof?: Express.Multer.File,
+  ) {
     const email = createUserSecondDto.email.toLowerCase();
     const existingUser = await this.userModel.findOne({ email, deletedAt: { $exists: false } }).exec();
     if (!existingUser) {
@@ -177,6 +181,12 @@ export class UsersService {
     const profileImageUrl = file
       ? await this.fileUploadService.uploadFile(file, 'profiles')
       : null;
+    if (existingUser.type === UserRole.PHOTOGRAPHER && !identityProof) {
+      throw new BadRequestException('Identity proof is required for photographer accounts');
+    }
+    const identityProofUrl = existingUser.type === UserRole.PHOTOGRAPHER && identityProof
+      ? await this.fileUploadService.uploadConfidentialFile(identityProof)
+      : existingUser.identityProofUrl || null;
     const hasCoordinates = createUserSecondDto.latitude !== undefined && createUserSecondDto.longitude !== undefined;
     const updateData = {
       ...(createUserSecondDto.type ? { type: createUserSecondDto.type } : {}),
@@ -194,6 +204,7 @@ export class UsersService {
         }
         : null,
       profileImageUrl,
+      ...(existingUser.type === UserRole.PHOTOGRAPHER ? { identityProofUrl } : {}),
     };
 
     const updatedUser = await this.userModel
@@ -440,6 +451,39 @@ export class UsersService {
     return updatedUser;
   }
 
+  async updateIdentityProof(id: string, file?: Express.Multer.File): Promise<UserDocument> {
+    if (!Types.ObjectId.isValid(id)) {
+      throw new BadRequestException('Invalid user ID');
+    }
+    if (!file) {
+      throw new BadRequestException('Identity proof file is required');
+    }
+
+    const user = await this.userModel.findOne({
+      _id: id,
+      deletedAt: { $exists: false },
+      type: UserRole.PHOTOGRAPHER,
+    }).exec();
+    if (!user) {
+      throw new NotFoundException('Photographer not found');
+    }
+
+    const identityProofUrl = await this.fileUploadService.uploadConfidentialFile(file);
+    const updatedUser = await this.userModel.findOneAndUpdate(
+      { _id: id, deletedAt: { $exists: false }, type: UserRole.PHOTOGRAPHER },
+      { $set: { identityProofUrl } },
+      { new: true, runValidators: true },
+    ).select('-password').exec();
+    if (!updatedUser) {
+      await this.fileUploadService.deleteFile(identityProofUrl);
+      throw new NotFoundException('Photographer not found');
+    }
+    if (user.identityProofUrl) {
+      await this.fileUploadService.deleteFile(user.identityProofUrl);
+    }
+    return updatedUser;
+  }
+
   async removeProfilePicture(id: string): Promise<void> {
     if (!Types.ObjectId.isValid(id)) {
       throw new BadRequestException('Invalid user ID');
@@ -468,8 +512,8 @@ export class UsersService {
     if (!Types.ObjectId.isValid(id)) {
       throw new BadRequestException('Invalid photographer ID');
     }
-    if (!Number.isInteger(slot) || slot < 0 || slot > 1) {
-      throw new BadRequestException('Video slot must be 0 or 1');
+    if (!Number.isInteger(slot) || slot < 0 || slot > 4) {
+      throw new BadRequestException('Media slot must be between 0 and 4');
     }
     if (!file) {
       throw new BadRequestException('Profile video file is required');
@@ -493,7 +537,7 @@ export class UsersService {
       ? user.profileVideoUrls?.[0] || user.profileVideoUrl
       : user.profileVideoUrls?.[slot];
     const previousVideoUrl = previousVideo?.videoUrl || legacyVideoUrl;
-    const videoUrl = await this.fileUploadService.uploadVideoFile(file);
+    const videoUrl = await this.fileUploadService.uploadMediaFile(file);
     const videoName = basename(videoUrl);
 
     let savedVideo: ProfileVideoDocument | null;
@@ -555,8 +599,8 @@ export class UsersService {
     if (!Types.ObjectId.isValid(id)) {
       throw new BadRequestException('Invalid photographer ID');
     }
-    if (!Number.isInteger(slot) || slot < 0 || slot > 1) {
-      throw new BadRequestException('Video slot must be 0 or 1');
+    if (!Number.isInteger(slot) || slot < 0 || slot > 4) {
+      throw new BadRequestException('Media slot must be between 0 and 4');
     }
 
     const user = await this.userModel

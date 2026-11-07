@@ -1,4 +1,4 @@
-import { ArrayUnique, IsString, IsEmail, IsOptional, IsEnum, MinLength, MaxLength, IsUrl, IsBoolean, Matches, IsNumber, Min, Max, IsArray, IsDateString, IsObject } from 'class-validator';
+import { ArrayUnique, IsString, IsEmail, IsOptional, IsEnum, MinLength, MaxLength, IsUrl, IsBoolean, Matches, IsNumber, Min, Max, IsArray, IsDateString, IsObject, ValidateIf } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform, Type } from 'class-transformer';
 import { UserRole, UserStatus } from '../../schemas/user.schema';
@@ -76,6 +76,12 @@ export class CreateUserFirstDto {
   @ApiProperty({ enum: UserRole, example: UserRole.PARTNER })
   @IsEnum(UserRole)
   type: UserRole;
+
+  @ApiPropertyOptional({ example: '9876543210' })
+  @ValidateIf((dto: CreateUserFirstDto) => dto.type === UserRole.PARTNER)
+  @IsString()
+  @Matches(/^\d{10}$/)
+  phone?: string;
 }
 
 export class CreateUserSecondDto {
@@ -224,6 +230,12 @@ export class UpdateUserDto {
   @IsArray()
   @IsString({ each: true })
   specialties?: string[];
+
+  @ApiPropertyOptional({ example: ['English', 'Hindi'], type: [String] })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  languages?: string[];
 
   @ApiPropertyOptional({ example: 'Photographer based in California' })
   @IsOptional()
