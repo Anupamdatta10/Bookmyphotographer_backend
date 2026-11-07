@@ -37,7 +37,7 @@ export class UsersService {
     const passwordHash = await bcrypt.hash(createUserFirstDto.password, 12);
     await this.registrationOtpModel.findOneAndUpdate(
       { email },
-      { otp, name: createUserFirstDto.name, type,passwordHash, expiresAt },
+      { otp, name: createUserFirstDto.name, type, passwordHash, expiresAt },
       { upsert: true, new: true, setDefaultsOnInsert: true },
     ).exec();
 
@@ -53,11 +53,63 @@ export class UsersService {
         auth: { user, pass },
       });
       const result = await transporter.sendMail({
-        from: user,
+        from: {
+          name: 'BookMyFotographer',
+          address: user,
+        },
+
         to: email,
-        subject: 'Your verification code for BookMyPhotographer',
-        text: `Your verification code is ${otp}. It expires in 10 minutes.`,
+
+        subject: 'Your BookMyFotographer verification code',
+
+        text: `
+            Hello,
+
+            Your verification code is ${otp}.
+
+            This code expires in 10 minutes.
+
+            If you didn't request this code, please ignore this email.
+
+            Regards,
+            BookMyFotographer Team
+              `,
+
+        html: `
+            <div style="
+              max-width: 500px;
+              margin: auto;
+              padding: 24px;
+              font-family: Arial, sans-serif;
+              color: #333;
+            ">
+              <h2>BookMyFotographer</h2>
+
+              <p>Hello,</p>
+
+              <p>Your verification code is:</p>
+
+              <div style="
+                padding: 16px;
+                text-align: center;
+                background: #f4f4f4;
+                font-size: 30px;
+                font-weight: bold;
+                letter-spacing: 8px;
+              ">
+                ${otp}
+              </div>
+
+              <p>This code expires in <strong>10 minutes</strong>.</p>
+
+              <p>If you didn't request this code, please ignore this email.</p>
+
+              <p>Regards,<br>BookMyFotographer Team</p>
+            </div>
+          `,
       });
+
+      console.log('Email sent:', result.messageId);
       console.info('Registration OTP email sent:', {
         recipient: email,
         messageId: result.messageId,
@@ -84,7 +136,7 @@ export class UsersService {
     return { message: 'Request received. Verification email sent.' };
   }
 
-  async verifyRegistrationOtp(email: string, otp: string): Promise<{ message: string,data:any }> {
+  async verifyRegistrationOtp(email: string, otp: string): Promise<{ message: string, data: any }> {
     const record = await this.registrationOtpModel.findOne({
       email: email.toLowerCase(),
       otp,
@@ -103,8 +155,12 @@ export class UsersService {
     });
     await user.save();
     await this.registrationOtpModel.deleteOne({ _id: record._id }).exec();
-    return { message: 'Email verified successfully', data:{ name: record.name,
-      email: record.email, type: record.type} };
+    return {
+      message: 'Email verified successfully', data: {
+        name: record.name,
+        email: record.email, type: record.type
+      }
+    };
   }
 
   private generateOtp(): string {
@@ -133,9 +189,9 @@ export class UsersService {
       address2: createUserSecondDto.address2 ?? null,
       location: hasCoordinates
         ? {
-            type: 'Point' as const,
-            coordinates: [createUserSecondDto.longitude!, createUserSecondDto.latitude!] as [number, number],
-          }
+          type: 'Point' as const,
+          coordinates: [createUserSecondDto.longitude!, createUserSecondDto.latitude!] as [number, number],
+        }
         : null,
       profileImageUrl,
     };
@@ -150,7 +206,7 @@ export class UsersService {
 
     return {
       message: 'User profile updated successfully',
-      update_sts:true,
+      update_sts: true,
       data: updatedUser,
     };
   }
