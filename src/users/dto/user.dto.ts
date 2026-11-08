@@ -352,3 +352,28 @@ export class LoginDto {
   @IsString()
   password: string;
 }
+
+export class ForgotPasswordDto {
+  @ApiProperty({ example: 'john.doe@example.com' })
+  @IsEmail()
+  email: string;
+}
+
+export class VerifyPasswordResetOtpDto {
+  @ApiProperty({ example: 'john.doe@example.com' })
+  @IsEmail()
+  email: string;
+
+  @ApiProperty({ example: '123456' })
+  @IsString()
+  @Matches(/^\d{6}$/)
+  otp: string;
+}
+
+export class ResetPasswordDto extends VerifyPasswordResetOtpDto {
+  @ApiProperty({ example: 'newSecurePassword123' })
+  @IsString()
+  @MinLength(8)
+  @MaxLength(50)
+  password: string;
+}

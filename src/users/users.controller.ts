@@ -39,6 +39,9 @@ import {
   UserQueryDto,
   LoginDto,
   VerifyOtpDto,
+  ForgotPasswordDto,
+  VerifyPasswordResetOtpDto,
+  ResetPasswordDto,
 } from './dto/user.dto';
 import { User, UserRole } from '../schemas/user.schema';
 import { JwtService } from '@nestjs/jwt';
@@ -74,6 +77,27 @@ export class UsersController {
   @UsePipes(new ValidationPipe({ transform: true }))
   async verifyOtp(@Body() verifyOtpDto: VerifyOtpDto) {
     return this.usersService.verifyRegistrationOtp(verifyOtpDto.email, verifyOtpDto.otp);
+  }
+
+  @Post('forgot-password')
+  @HttpCode(HttpStatus.OK)
+  @UsePipes(new ValidationPipe({ transform: true }))
+  async forgotPassword(@Body() dto: ForgotPasswordDto) {
+    return this.usersService.sendPasswordResetOtp(dto.email);
+  }
+
+  @Post('verify-password-reset-otp')
+  @HttpCode(HttpStatus.OK)
+  @UsePipes(new ValidationPipe({ transform: true }))
+  async verifyPasswordResetOtp(@Body() dto: VerifyPasswordResetOtpDto) {
+    return this.usersService.verifyPasswordResetOtp(dto.email, dto.otp);
+  }
+
+  @Post('reset-password')
+  @HttpCode(HttpStatus.OK)
+  @UsePipes(new ValidationPipe({ transform: true }))
+  async resetPassword(@Body() dto: ResetPasswordDto) {
+    return this.usersService.resetPassword(dto.email, dto.otp, dto.password);
   }
 
   @Post('profileSetup')

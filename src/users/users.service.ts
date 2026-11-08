@@ -12,6 +12,7 @@ import { CreateUserDto, CreateUserFirstDto, CreateUserSecondDto, UpdateUserDto, 
 import { FileUploadService } from '../common/services/file-upload.service';
 import { ProfileVideo, ProfileVideoDocument } from '../schemas/profile-video.schema';
 import { basename } from 'path';
+import { PasswordResetOtp, PasswordResetOtpDocument } from '../schemas/password-reset-otp.schema';
 
 @Injectable()
 export class UsersService {
@@ -22,7 +23,99 @@ export class UsersService {
     private fileUploadService: FileUploadService,
     @InjectModel(ProfileVideo.name) private profileVideoModel: Model<ProfileVideoDocument>,
     private configService: ConfigService,
+    @InjectModel(PasswordResetOtp.name) private passwordResetOtpModel?: Model<PasswordResetOtpDocument>,
   ) { }
+
+  async sendPasswordResetOtp(emailInput: string): Promise<{ message: string }> {
+    const email = emailInput.toLowerCase().trim();
+    const [user, admin] = await Promise.all([
+      this.userModel.findOne({ email, deletedAt: { $exists: false } }).exec(),
+      this.adminModel.findOne({ email, deletedAt: { $exists: false } }).exec(),
+    ]);
+    const response = { message: 'If an account exists for this email, a password reset code has been sent.' };
+
+    if (!user && !admin) return response;
+
+    const otp = this.generateOtp();
+    await this.passwordResetOtpModel?.findOneAndUpdate(
+      { email },
+      { otp, expiresAt: new Date(Date.now() + 10 * 60 * 1000) },
+      { upsert: true, new: true, setDefaultsOnInsert: true },
+    ).exec();
+
+    try {
+      await this.sendPasswordResetEmail(email, otp);
+    } catch (error) {
+      await this.passwordResetOtpModel?.deleteOne({ email }).exec();
+      console.error('Password reset OTP email failed:', {
+        recipient: email,
+        message: error instanceof Error ? error.message : String(error),
+      });
+      throw new ServiceUnavailableException('Unable to send password reset email. Check SMTP configuration.');
+    }
+    return response;
+  }
+
+  async verifyPasswordResetOtp(emailInput: string, otp: string): Promise<{ message: string }> {
+    const record = await this.passwordResetOtpModel?.findOne({
+      email: emailInput.toLowerCase().trim(),
+      otp,
+      expiresAt: { $gt: new Date() },
+    }).exec();
+    if (!record) throw new BadRequestException('Invalid or expired password reset code');
+    return { message: 'Password reset code verified' };
+  }
+
+  async resetPassword(emailInput: string, otp: string, password: string): Promise<{ message: string }> {
+    const email = emailInput.toLowerCase().trim();
+    const record = await this.passwordResetOtpModel?.findOne({
+      email,
+      otp,
+      expiresAt: { $gt: new Date() },
+    }).exec();
+    if (!record) throw new BadRequestException('Invalid or expired password reset code');
+
+    const passwordHash = await bcrypt.hash(password, 12);
+    const userResult = await this.userModel.findOneAndUpdate(
+      { email, deletedAt: { $exists: false } },
+      { $set: { password: passwordHash } },
+      { new: true },
+    ).exec();
+    if (userResult) {
+      await this.passwordResetOtpModel?.deleteOne({ _id: record._id }).exec();
+      return { message: 'Password reset successfully' };
+    }
+
+    const adminResult = await this.adminModel.findOneAndUpdate(
+      { email, deletedAt: { $exists: false } },
+      { $set: { password: passwordHash } },
+      { new: true },
+    ).exec();
+    if (!adminResult) throw new NotFoundException('Account not found');
+    await this.passwordResetOtpModel?.deleteOne({ _id: record._id }).exec();
+    return { message: 'Password reset successfully' };
+  }
+
+  private async sendPasswordResetEmail(email: string, otp: string): Promise<void> {
+    const user = this.configService.get<string>('EMAIL');
+    const pass = this.configService.get<string>('EMAIL_PASSWORD');
+    if (!user || !pass) throw new Error('Email settings are missing');
+    const transporter = nodemailer.createTransport({ service: 'gmail', auth: { user, pass } });
+    const result = await transporter.sendMail({
+      from: { name: 'BookMyFotographer', address: user },
+      to: email,
+      subject: 'Your BookMyFotographer password reset code',
+      text: `Your password reset code is ${otp}. It expires in 10 minutes.`,
+      html: `<div style="max-width:500px;margin:auto;font-family:Arial,sans-serif;color:#333"><h2>BookMyFotographer</h2><p>Your password reset code is:</p><div style="padding:16px;text-align:center;background:#f4f4f4;font-size:30px;font-weight:bold;letter-spacing:8px">${otp}</div><p>This code expires in <strong>10 minutes</strong>.</p><p>If you did not request this, you can ignore this email.</p></div>`,
+    });
+    console.info('Password reset OTP email accepted:', {
+      recipient: email,
+      messageId: result.messageId,
+      accepted: result.accepted,
+      rejected: result.rejected,
+      response: result.response,
+    });
+  }
 
   async sendRegistrationOtp(createUserFirstDto: CreateUserFirstDto): Promise<{ message: string }> {
     const email = createUserFirstDto.email.toLowerCase();

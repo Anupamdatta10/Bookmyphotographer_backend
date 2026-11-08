@@ -10,6 +10,7 @@ import * as request from 'supertest';
 import { ProfileVideo } from '../schemas/profile-video.schema';
 import { UsersController } from './users.controller';
 import { UsersService } from './users.service';
+import { UserAuthGuard } from './user-auth.guard';
 
 describe('UsersController profile videos', () => {
   let app: INestApplication;
@@ -33,7 +34,10 @@ describe('UsersController profile videos', () => {
         { provide: UsersService, useValue: usersService },
         { provide: JwtService, useValue: {} },
       ],
-    }).compile();
+    })
+      .overrideGuard(UserAuthGuard)
+      .useValue({ canActivate: () => true })
+      .compile();
 
     app = module.createNestApplication();
     app.setGlobalPrefix('api');

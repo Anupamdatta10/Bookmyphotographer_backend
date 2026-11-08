@@ -7,6 +7,7 @@ import { RegistrationOtp, RegistrationOtpSchema } from '../schemas/registration-
 import { CommonModule } from '../common/common.module';
 import { Admin, AdminSchema } from '../schemas/admin.schema';
 import { ProfileVideo, ProfileVideoSchema } from '../schemas/profile-video.schema';
+import { PasswordResetOtp, PasswordResetOtpSchema } from '../schemas/password-reset-otp.schema';
 
 @Module({
   imports: [
@@ -15,6 +16,7 @@ import { ProfileVideo, ProfileVideoSchema } from '../schemas/profile-video.schem
       { name: RegistrationOtp.name, schema: RegistrationOtpSchema },
       { name: Admin.name, schema: AdminSchema },
       { name: ProfileVideo.name, schema: ProfileVideoSchema },
+      { name: PasswordResetOtp.name, schema: PasswordResetOtpSchema },
     ]),
     CommonModule,
   ],

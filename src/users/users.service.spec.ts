@@ -6,6 +6,7 @@ describe('UsersService registration flow', () => {
   let userModel: any;
   let adminModel: any;
   let registrationOtpModel: any;
+  let passwordResetOtpModel: any;
   let fileUploadService: any;
   let profileVideoModel: any;
 
@@ -20,6 +21,12 @@ describe('UsersService registration flow', () => {
 
     registrationOtpModel = {
       findOne: jest.fn(),
+      deleteOne: jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue({ deletedCount: 1 }) }),
+    };
+    passwordResetOtpModel = {
+      findOne: jest.fn(),
+      findOneAndDelete: jest.fn(),
+      findOneAndUpdate: jest.fn(),
       deleteOne: jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue({ deletedCount: 1 }) }),
     };
     fileUploadService = {
@@ -42,6 +49,45 @@ describe('UsersService registration flow', () => {
       fileUploadService,
       profileVideoModel,
       {} as any,
+      passwordResetOtpModel,
+    );
+  });
+
+  it('verifies a valid password reset code', async () => {
+    passwordResetOtpModel.findOne.mockReturnValue({
+      exec: jest.fn().mockResolvedValue({ email: 'person@example.com', otp: '123456' }),
+    });
+
+    await expect(service.verifyPasswordResetOtp('PERSON@example.com', '123456')).resolves.toEqual({
+      message: 'Password reset code verified',
+    });
+    expect(passwordResetOtpModel.findOne).toHaveBeenCalledWith({
+      email: 'person@example.com',
+      otp: '123456',
+      expiresAt: { $gt: expect.any(Date) },
+    });
+  });
+
+  it('resets a user password with a valid code and consumes the code', async () => {
+    passwordResetOtpModel.findOne.mockReturnValue({
+      exec: jest.fn().mockResolvedValue({ email: 'person@example.com', otp: '123456' }),
+    });
+    userModel.findOneAndUpdate.mockReturnValue({
+      exec: jest.fn().mockResolvedValue({ _id: 'user-id' }),
+    });
+
+    await expect(service.resetPassword('PERSON@example.com', '123456', 'newPassword123')).resolves.toEqual({
+      message: 'Password reset successfully',
+    });
+    expect(passwordResetOtpModel.findOne).toHaveBeenCalledWith({
+      email: 'person@example.com',
+      otp: '123456',
+      expiresAt: { $gt: expect.any(Date) },
+    });
+    expect(userModel.findOneAndUpdate).toHaveBeenCalledWith(
+      { email: 'person@example.com', deletedAt: { $exists: false } },
+      { $set: { password: expect.any(String) } },
+      { new: true },
     );
   });
 
