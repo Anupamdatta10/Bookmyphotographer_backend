@@ -1,6 +1,11 @@
 import { existsSync } from 'fs';
 import { basename, join } from 'path';
-import { FileUploadService, MAX_VIDEO_FILE_SIZE } from './file-upload.service';
+import {
+  FileUploadService,
+  MAX_HERO_IMAGE_FILE_SIZE,
+  MAX_IMAGE_FILE_SIZE,
+  MAX_VIDEO_FILE_SIZE,
+} from './file-upload.service';
 
 describe('FileUploadService video uploads', () => {
   const fileUploadService = new FileUploadService();
@@ -45,5 +50,50 @@ describe('FileUploadService video uploads', () => {
         buffer: Buffer.alloc(0),
       } as Express.Multer.File),
     ).rejects.toThrow('Video too large');
+  });
+
+  it('accepts hero images larger than the standard image limit up to 10 MB', async () => {
+    const fileSize = Math.floor(9.7 * 1024 * 1024);
+    const file: Express.Multer.File = {
+      originalname: 'hero.jpg',
+      mimetype: 'image/jpeg',
+      size: fileSize,
+      buffer: Buffer.alloc(fileSize),
+    } as Express.Multer.File;
+
+    const url = await fileUploadService.uploadFile(
+      file,
+      'hero_imgs',
+      MAX_HERO_IMAGE_FILE_SIZE,
+    );
+    uploadedUrls.push(url);
+
+    expect(url).toMatch(/^\/public\/uploads\/hero_imgs\/.+\.jpg$/);
+  });
+
+  it('keeps the standard image upload limit at 5 MB', async () => {
+    await expect(
+      fileUploadService.uploadFile({
+        originalname: 'large.jpg',
+        mimetype: 'image/jpeg',
+        size: MAX_IMAGE_FILE_SIZE + 1,
+        buffer: Buffer.from('test'),
+      } as Express.Multer.File),
+    ).rejects.toThrow('Maximum size: 5MB');
+  });
+
+  it('rejects hero images larger than 10 MB', async () => {
+    await expect(
+      fileUploadService.uploadFile(
+        {
+          originalname: 'large-hero.jpg',
+          mimetype: 'image/jpeg',
+          size: MAX_HERO_IMAGE_FILE_SIZE + 1,
+          buffer: Buffer.from('test'),
+        } as Express.Multer.File,
+        'hero_imgs',
+        MAX_HERO_IMAGE_FILE_SIZE,
+      ),
+    ).rejects.toThrow('Maximum size: 10MB');
   });
 });

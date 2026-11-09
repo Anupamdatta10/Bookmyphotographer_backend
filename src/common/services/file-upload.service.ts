@@ -4,6 +4,7 @@ import { join } from 'path';
 import { existsSync, mkdirSync } from 'fs';
 
 export const MAX_IMAGE_FILE_SIZE = 5 * 1024 * 1024;
+export const MAX_HERO_IMAGE_FILE_SIZE = 10 * 1024 * 1024;
 export const MAX_VIDEO_FILE_SIZE = 20 * 1024 * 1024;
 export const MAX_MEDIA_FILE_SIZE = 20 * 1024 * 1024;
 
@@ -40,8 +41,12 @@ export class FileUploadService {
     }
   }
 
-  async uploadFile(file: Express.Multer.File, subfolder: string = ''): Promise<string> {
-    this.validateFile(file);
+  async uploadFile(
+    file: Express.Multer.File,
+    subfolder: string = '',
+    maxFileSize: number = this.maxFileSize,
+  ): Promise<string> {
+    this.validateFile(file, maxFileSize);
 
     return this.saveUploadedFile(file, subfolder);
   }
@@ -79,8 +84,12 @@ export class FileUploadService {
     throw new BadRequestException('Invalid media type. Choose an image or video file');
   }
 
-  async uploadMultipleFiles(files: Express.Multer.File[], subfolder: string = ''): Promise<string[]> {
-    const uploadPromises = files.map(file => this.uploadFile(file, subfolder));
+  async uploadMultipleFiles(
+    files: Express.Multer.File[],
+    subfolder: string = '',
+    maxFileSize: number = this.maxFileSize,
+  ): Promise<string[]> {
+    const uploadPromises = files.map((file) => this.uploadFile(file, subfolder, maxFileSize));
     return Promise.all(uploadPromises);
   }
 
@@ -124,7 +133,7 @@ export class FileUploadService {
     }
   }
 
-  private validateFile(file: Express.Multer.File): void {
+  private validateFile(file: Express.Multer.File, maxFileSize: number = this.maxFileSize): void {
     if (!file) {
       throw new BadRequestException('No file provided');
     }
@@ -135,9 +144,9 @@ export class FileUploadService {
       );
     }
 
-    if (file.size > this.maxFileSize) {
+    if (file.size > maxFileSize) {
       throw new BadRequestException(
-        `File too large. Maximum size: ${this.maxFileSize / (1024 * 1024)}MB`
+        `File too large. Maximum size: ${maxFileSize / (1024 * 1024)}MB`
       );
     }
   }

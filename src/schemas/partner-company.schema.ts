@@ -26,7 +26,7 @@ export class PartnerCompany {
   instagramUrl: string;
 
   @Prop({ type: String, default: '', trim: true, maxlength: 2048 })
-  linkedinUrl: string;
+  youtubeUrl: string;
 
   @Prop({ type: String, enum: PartnerCompanyStatus, default: PartnerCompanyStatus.DRAFT })
   status: PartnerCompanyStatus;

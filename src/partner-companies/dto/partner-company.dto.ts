@@ -33,11 +33,11 @@ export class CreatePartnerCompanyDto {
   @MaxLength(2048)
   instagramUrl?: string | null;
 
-  @ApiPropertyOptional({ example: 'https://linkedin.com/company/northstar' })
+  @ApiPropertyOptional({ example: 'https://youtube.com/@northstar' })
   @IsOptional()
   @IsUrl({ require_protocol: true })
   @MaxLength(2048)
-  linkedinUrl?: string | null;
+  youtubeUrl?: string | null;
 
   @ApiPropertyOptional({ enum: PartnerCompanyStatus })
   @IsOptional()
@@ -78,11 +78,11 @@ export class UpdatePartnerCompanyDto {
   @MaxLength(2048)
   instagramUrl?: string | null;
 
-  @ApiPropertyOptional({ example: 'https://linkedin.com/company/northstar' })
+  @ApiPropertyOptional({ example: 'https://youtube.com/@northstar' })
   @IsOptional()
   @IsUrl({ require_protocol: true })
   @MaxLength(2048)
-  linkedinUrl?: string | null;
+  youtubeUrl?: string | null;
 
   @ApiPropertyOptional({ enum: PartnerCompanyStatus })
   @IsOptional()

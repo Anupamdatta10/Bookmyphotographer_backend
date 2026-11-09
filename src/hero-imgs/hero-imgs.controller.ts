@@ -4,6 +4,7 @@ import { ApiConsumes, ApiOperation, ApiTags, ApiBearerAuth } from '@nestjs/swagg
 import { HeroImg } from '../schemas/hero-img.schema';
 import { HeroImgsService } from './hero-imgs.service';
 import { AdminSelfGuard } from '../admins/admin-auth.guard';
+import { MAX_HERO_IMAGE_FILE_SIZE } from '../common/services/file-upload.service';
 
 @ApiTags('hero-imgs')
 @Controller('hero-imgs')
@@ -40,7 +41,11 @@ export class HeroImgsController {
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Add images to the home page hero configuration' })
   @ApiConsumes('multipart/form-data')
-  @UseInterceptors(FilesInterceptor('files', 20))
+  @UseInterceptors(
+    FilesInterceptor('files', 20, {
+      limits: { fileSize: MAX_HERO_IMAGE_FILE_SIZE },
+    }),
+  )
   addImages(@UploadedFiles() files: Express.Multer.File[]) {
     return this.heroImgsService.addImages(files);
   }

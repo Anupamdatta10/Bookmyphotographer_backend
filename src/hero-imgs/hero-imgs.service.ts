@@ -2,7 +2,10 @@ import { Injectable, BadRequestException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { HeroImg, HeroImgDocument } from '../schemas/hero-img.schema';
-import { FileUploadService } from '@/common/services/file-upload.service';
+import {
+  FileUploadService,
+  MAX_HERO_IMAGE_FILE_SIZE,
+} from '../common/services/file-upload.service';
 
 @Injectable()
 export class HeroImgsService {
@@ -43,7 +46,11 @@ export class HeroImgsService {
   async addImages(files: Express.Multer.File[]): Promise<HeroImgDocument> {
     if (!files?.length) throw new BadRequestException('No files provided');
     const config = await this.getConfig();
-    const urls = await this.fileUploadService.uploadMultipleFiles(files, 'hero_imgs');
+    const urls = await this.fileUploadService.uploadMultipleFiles(
+      files,
+      'hero_imgs',
+      MAX_HERO_IMAGE_FILE_SIZE,
+    );
     config.images.push(...urls.map((url, index) => ({
       url,
       alt: files[index].originalname,
