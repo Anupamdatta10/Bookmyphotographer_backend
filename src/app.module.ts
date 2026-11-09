@@ -12,6 +12,7 @@ import { PartnerCompaniesModule } from './partner-companies/partner-companies.mo
 import { AdminsModule } from './admins/admins.module';
 import { PhotographersModule } from './photographers/photographers.module';
 import { HeroImgsModule } from './hero-imgs/hero-imgs.module';
+import { ContactModule } from './contact/contact.module';
 @Module({
   imports: [
     // Configuration module
@@ -52,7 +53,8 @@ import { HeroImgsModule } from './hero-imgs/hero-imgs.module';
     AdminsModule,
     CommonModule,
     PhotographersModule,
-    HeroImgsModule
+    HeroImgsModule,
+    ContactModule,
   ],
 })
 export class AppModule {}

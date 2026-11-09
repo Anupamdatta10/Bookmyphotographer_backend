@@ -32,9 +32,9 @@ export class UsersService {
       this.userModel.findOne({ email, deletedAt: { $exists: false } }).exec(),
       this.adminModel.findOne({ email, deletedAt: { $exists: false } }).exec(),
     ]);
-    const response = { message: 'If an account exists for this email, a password reset code has been sent.' };
-
-    if (!user && !admin) return response;
+    if (!user && !admin) {
+      throw new NotFoundException('No account was found with this email address.');
+    }
 
     const otp = this.generateOtp();
     await this.passwordResetOtpModel?.findOneAndUpdate(
@@ -53,7 +53,7 @@ export class UsersService {
       });
       throw new ServiceUnavailableException('Unable to send password reset email. Check SMTP configuration.');
     }
-    return response;
+    return { message: 'Password reset code sent successfully.' };
   }
 
   async verifyPasswordResetOtp(emailInput: string, otp: string): Promise<{ message: string }> {
