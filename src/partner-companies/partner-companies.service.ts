@@ -47,7 +47,11 @@ export class PartnerCompaniesService implements OnModuleInit {
   async findAll(query: PartnerCompanyQueryDto): Promise<{
     data: PartnerCompanyDocument[];
     total: number;
+    page: number;
+    limit: number;
   }> {
+    const page = query.page || 1;
+    const limit = Math.min(query.limit || 10, 10);
     const filter: FilterQuery<PartnerCompanyDocument> = {
       deletedAt: { $exists: false },
     };
@@ -61,10 +65,15 @@ export class PartnerCompaniesService implements OnModuleInit {
     }
 
     const [data, total] = await Promise.all([
-      this.partnerCompanyModel.find(filter).sort({ createdAt: -1 }).exec(),
+      this.partnerCompanyModel
+        .find(filter)
+        .sort({ createdAt: -1 })
+        .skip((page - 1) * limit)
+        .limit(limit)
+        .exec(),
       this.partnerCompanyModel.countDocuments(filter).exec(),
     ]);
-    return { data, total };
+    return { data, total, page, limit };
   }
 
   async findOne(id: string): Promise<PartnerCompanyDocument> {

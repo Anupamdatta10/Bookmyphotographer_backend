@@ -3,9 +3,13 @@ import {
   IsEmail,
   IsOptional,
   IsString,
+  IsInt,
+  Max,
   MaxLength,
+  Min,
   MinLength,
 } from 'class-validator';
+import { Type } from 'class-transformer';
 
 export class CreateAdminDto {
   @ApiProperty({ example: 'Alex Morgan', minLength: 2, maxLength: 100 })
@@ -72,6 +76,21 @@ export class UpdateAdminProfileDto {
 }
 
 export class AdminQueryDto {
+  @ApiPropertyOptional({ example: 1 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  page?: number = 1;
+
+  @ApiPropertyOptional({ example: 10 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(10)
+  limit?: number = 10;
+
   @ApiPropertyOptional({ example: 'alex' })
   @IsOptional()
   @IsString()

@@ -193,6 +193,7 @@ export class BookingsService {
       sortBy = 'eventDate',
       sortOrder = 'asc',
     } = queryDto;
+    const pageSize = Math.min(limit, 10);
 
     // Build filter query
     const filter: FilterQuery<BookingDocument> = {};
@@ -254,8 +255,8 @@ export class BookingsService {
         .populate('photographerId', 'name email phone profileImageUrl')
         .populate('userId', 'name email phone')
         .sort(sort)
-        .skip((page - 1) * limit)
-        .limit(limit)
+        .skip((page - 1) * pageSize)
+        .limit(pageSize)
         .exec(),
       this.bookingModel.countDocuments(filter).exec(),
     ]);
@@ -264,7 +265,7 @@ export class BookingsService {
       data,
       total,
       page,
-      limit,
+      limit: pageSize,
     };
   }
 

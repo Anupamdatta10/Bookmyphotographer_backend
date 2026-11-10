@@ -348,13 +348,14 @@ export class UsersService {
       limit = '10',
       type,
       isActive,
+      status,
       search,
       sortBy = 'createdAt',
       sortOrder = 'desc',
     } = queryDto;
 
     const pageNum = parseInt(page, 10) || 1;
-    const limitNum = parseInt(limit, 10) || 10;
+    const limitNum = Math.min(parseInt(limit, 10) || 10, 10);
 
     // Build filter query
     const filter: FilterQuery<UserDocument> = {};
@@ -365,6 +366,10 @@ export class UsersService {
 
     if (isActive !== undefined) {
       filter.isActive = String(isActive) === 'true';
+    }
+
+    if (status) {
+      filter.status = status;
     }
 
     if (search) {

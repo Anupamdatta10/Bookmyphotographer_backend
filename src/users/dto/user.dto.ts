@@ -327,6 +327,11 @@ export class UserQueryDto {
   @IsBoolean()
   isActive?: boolean;
 
+  @ApiPropertyOptional({ enum: UserStatus })
+  @IsOptional()
+  @IsEnum(UserStatus)
+  status?: UserStatus;
+
   @ApiPropertyOptional({ example: 'john' })
   @IsOptional()
   @IsString()

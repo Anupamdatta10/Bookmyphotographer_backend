@@ -1,5 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsEnum, IsNotEmpty, IsOptional, IsString, IsUrl, MaxLength } from 'class-validator';
+import { IsEnum, IsInt, IsNotEmpty, IsOptional, IsString, IsUrl, Max, MaxLength, Min } from 'class-validator';
+import { Type } from 'class-transformer';
 import { PartnerCompanyStatus } from '../../schemas/partner-company.schema';
 
 export class CreatePartnerCompanyDto {
@@ -91,6 +92,21 @@ export class UpdatePartnerCompanyDto {
 }
 
 export class PartnerCompanyQueryDto {
+  @ApiPropertyOptional({ example: 1 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  page?: number = 1;
+
+  @ApiPropertyOptional({ example: 10 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(10)
+  limit?: number = 10;
+
   @ApiPropertyOptional({ example: 'wedding' })
   @IsOptional()
   @IsString()

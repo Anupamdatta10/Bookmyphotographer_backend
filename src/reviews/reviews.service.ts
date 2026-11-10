@@ -41,7 +41,7 @@ export class ReviewsService {
     } = queryDto;
 
     const pageNum = parseInt(page, 10) || 1;
-    const limitNum = parseInt(limit, 10) || 10;
+    const limitNum = Math.min(parseInt(limit, 10) || 10, 10);
 
     // Build filter query
     const filter: FilterQuery<ReviewDocument> = {};

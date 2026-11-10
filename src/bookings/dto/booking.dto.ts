@@ -99,7 +99,7 @@ export class BookingQueryDto {
   @Type(() => Number)
   @IsNumber()
   @Min(1)
-  @Max(100)
+  @Max(10)
   limit?: number = 10;
 
   @ApiPropertyOptional({ example: '507f1f77bcf86cd799439011' })

@@ -73,11 +73,18 @@ export class AdminsService implements OnModuleInit {
         { email: { $regex: search, $options: 'i' } },
       ];
     }
+    const page = query.page || 1;
+    const limit = Math.min(query.limit || 10, 10);
     const [data, total] = await Promise.all([
-      this.adminModel.find(filter).sort({ createdAt: -1 }).exec(),
+      this.adminModel
+        .find(filter)
+        .sort({ createdAt: -1 })
+        .skip((page - 1) * limit)
+        .limit(limit)
+        .exec(),
       this.adminModel.countDocuments(filter).exec(),
     ]);
-    return { data, total };
+    return { data, total, page, limit };
   }
 
   async create(createDto: CreateAdminDto): Promise<AdminDocument> {

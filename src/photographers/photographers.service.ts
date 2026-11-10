@@ -57,6 +57,7 @@ export class PhotographersService {
       districtCities,
       city,
     } = queryDto;
+    const pageSize = Math.min(limit, 10);
 
     // Build filter query
     const filter: FilterQuery<UserDocument> = {
@@ -123,8 +124,8 @@ export class PhotographersService {
         .find(filter)
         .select('-password')
         .sort(sort)
-        .skip((page - 1) * limit)
-        .limit(limit)
+        .skip((page - 1) * pageSize)
+        .limit(pageSize)
         .exec(),
       this.userModel.countDocuments(filter).exec(),
     ]);
@@ -133,7 +134,7 @@ export class PhotographersService {
       data,
       total,
       page,
-      limit,
+      limit: pageSize,
     };
   }
 
