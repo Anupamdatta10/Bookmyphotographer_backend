@@ -165,6 +165,24 @@ export class PhotographerQueryDto {
   @Min(0)
   maxPrice?: number;
 
+  @ApiPropertyOptional({ example: 5000, type: Number })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  minDailyFees?: number;
+
+  @ApiPropertyOptional({
+    example: 600,
+    type: Number,
+    description: 'Exclusive upper bound for minimum daily fees',
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  maxDailyFees?: number;
+
   @ApiPropertyOptional({ example: 4.0 })
   @IsOptional()
   @Type(() => Number)

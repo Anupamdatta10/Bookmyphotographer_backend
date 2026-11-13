@@ -49,6 +49,8 @@ export class PhotographersService {
       isAvailable,
       minPrice,
       maxPrice,
+      minDailyFees,
+      maxDailyFees,
       minRating,
       sortBy = 'createdAt',
       sortOrder = 'desc',
@@ -63,6 +65,7 @@ export class PhotographersService {
     const filter: FilterQuery<UserDocument> = {
       type: UserRole.PHOTOGRAPHER,
       status: UserStatus.ACTIVE,
+      isBlocked: { $ne: true },
     };
 
     if (specialty) {
@@ -77,6 +80,16 @@ export class PhotographersService {
       filter.pricePerHour = {};
       if (minPrice !== undefined) filter.pricePerHour.$gte = minPrice;
       if (maxPrice !== undefined) filter.pricePerHour.$lte = maxPrice;
+    }
+
+    if (minDailyFees !== undefined || maxDailyFees !== undefined) {
+      filter.minimumDailyFees = {};
+      if (minDailyFees !== undefined) {
+        filter.minimumDailyFees.$gte = minDailyFees;
+      }
+      if (maxDailyFees !== undefined) {
+        filter.minimumDailyFees.$lt = maxDailyFees;
+      }
     }
 
     if (minRating !== undefined) {
@@ -143,7 +156,7 @@ export class PhotographersService {
       throw new BadRequestException('Invalid photographer ID');
     }
 
-    const photographer = await this.userModel.findOne({ _id: id, type: UserRole.PHOTOGRAPHER, deletedAt: { $exists: false } }).select('-password').exec();
+    const photographer = await this.userModel.findOne({ _id: id, type: UserRole.PHOTOGRAPHER, isBlocked: { $ne: true }, deletedAt: { $exists: false } }).select('-password').exec();
     if (!photographer) {
       throw new NotFoundException(`Photographer with ID ${id} not found`);
     }

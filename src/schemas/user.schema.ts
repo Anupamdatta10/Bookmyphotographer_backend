@@ -78,6 +78,9 @@ export class User {
   @Prop({ type: Number, default: 0, min: 0 })
   experienceYears: number;
 
+  @Prop({ type: Number, default: null, min: 0 })
+  minimumDailyFees: number | null;
+
   @Prop({ type: String, default: '' })
   proffession: string;
 
@@ -92,6 +95,9 @@ export class User {
 
   @Prop({ type: String, enum: UserStatus, default: UserStatus.PENDING })
   status: UserStatus;
+
+  @Prop({ type: Boolean, default: false })
+  isBlocked: boolean;
   
 
   @Prop({ type: Date })
@@ -140,5 +146,6 @@ UserSchema.index({ specialties: 1 });
 UserSchema.index({ isAvailable: 1 });
 UserSchema.index({ rating: -1 });
 UserSchema.index({ pricePerHour: 1 });
+UserSchema.index({ minimumDailyFees: 1 });
 UserSchema.index({ createdAt: -1 });
 UserSchema.index({ deletedAt: 1 });

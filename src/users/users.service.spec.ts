@@ -31,6 +31,7 @@ describe('UsersService registration flow', () => {
     };
     fileUploadService = {
       uploadFile: jest.fn(),
+      uploadConfidentialFile: jest.fn(),
       uploadVideoFile: jest.fn(),
       uploadMediaFile: jest.fn(),
       deleteFile: jest.fn(),
@@ -128,12 +129,14 @@ describe('UsersService registration flow', () => {
       select: jest.fn().mockReturnThis(),
       exec: jest.fn().mockResolvedValue(updatedUser),
     };
-    userModel.findOne.mockReturnValue({ exec: jest.fn().mockResolvedValue({ _id: 'user-id' }) });
+    userModel.findOne.mockReturnValue({
+      exec: jest.fn().mockResolvedValue({ _id: 'user-id', type: UserRole.PARTNER }),
+    });
     userModel.findOneAndUpdate.mockReturnValue(updateQuery);
 
     const result = await service.createSecondStep({
       email: 'PERSON@example.com',
-      type: UserRole.PHOTOGRAPHER,
+      type: UserRole.PARTNER,
       latitude: 37.7749,
       longitude: -122.4194,
       phone: '+1234567890',
@@ -145,7 +148,7 @@ describe('UsersService registration flow', () => {
       { email: 'person@example.com', deletedAt: { $exists: false } },
       {
         $set: {
-          type: UserRole.PHOTOGRAPHER,
+          type: UserRole.PARTNER,
           phone: '+1234567890',
           city: null,
           district: 'kolkata',
@@ -160,6 +163,57 @@ describe('UsersService registration flow', () => {
       { new: true, runValidators: true },
     );
     expect(updateQuery.select).toHaveBeenCalledWith('-password');
+  });
+
+  it('requires and saves minimum daily fees for photographer profile setup', async () => {
+    const updatedUser = { email: 'person@example.com' };
+    const updateQuery = {
+      select: jest.fn().mockReturnThis(),
+      exec: jest.fn().mockResolvedValue(updatedUser),
+    };
+    userModel.findOne.mockReturnValue({
+      exec: jest.fn().mockResolvedValue({
+        _id: 'user-id',
+        type: UserRole.PHOTOGRAPHER,
+      }),
+    });
+    fileUploadService.uploadConfidentialFile.mockResolvedValue('/identity-proof.jpg');
+    userModel.findOneAndUpdate.mockReturnValue(updateQuery);
+
+    await service.createSecondStep(
+      { email: 'person@example.com', minimumDailyFees: 5000 },
+      undefined,
+      {} as Express.Multer.File,
+    );
+
+    expect(userModel.findOneAndUpdate).toHaveBeenCalledWith(
+      { email: 'person@example.com', deletedAt: { $exists: false } },
+      {
+        $set: expect.objectContaining({
+          minimumDailyFees: 5000,
+          identityProofUrl: '/identity-proof.jpg',
+        }),
+      },
+      { new: true, runValidators: true },
+    );
+  });
+
+  it('rejects photographer profile setup without minimum daily fees', async () => {
+    userModel.findOne.mockReturnValue({
+      exec: jest.fn().mockResolvedValue({
+        _id: 'user-id',
+        type: UserRole.PHOTOGRAPHER,
+      }),
+    });
+
+    await expect(
+      service.createSecondStep(
+        { email: 'person@example.com' },
+        undefined,
+        {} as Express.Multer.File,
+      ),
+    ).rejects.toThrow('Minimum daily fees are required for photographer accounts');
+    expect(userModel.findOneAndUpdate).not.toHaveBeenCalled();
   });
 
   it('updates a user district from the profile editor', async () => {
@@ -286,6 +340,25 @@ describe('UsersService registration flow', () => {
         deletedAt: { $exists: false },
       },
       { $set: { status: UserStatus.ACTIVE } },
+      { new: true, runValidators: true },
+    );
+    expect(updateQuery.select).toHaveBeenCalledWith('-password');
+  });
+
+  it('updates the block status for a user account', async () => {
+    const userId = '65a000000000000000000003';
+    const updatedUser = { _id: userId, isBlocked: true };
+    const updateQuery = {
+      select: jest.fn().mockReturnThis(),
+      exec: jest.fn().mockResolvedValue(updatedUser),
+    };
+    userModel.findOneAndUpdate.mockReturnValue(updateQuery);
+
+    await expect(service.updateBlockStatus(userId, true)).resolves.toBe(updatedUser);
+
+    expect(userModel.findOneAndUpdate).toHaveBeenCalledWith(
+      { _id: userId, deletedAt: { $exists: false } },
+      { $set: { isBlocked: true } },
       { new: true, runValidators: true },
     );
     expect(updateQuery.select).toHaveBeenCalledWith('-password');

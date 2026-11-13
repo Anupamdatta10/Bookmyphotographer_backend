@@ -129,6 +129,13 @@ export class CreateUserSecondDto {
   @IsString()
   address2?: string;
 
+  @ApiPropertyOptional({ example: 5000, type: Number })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  minimumDailyFees?: number;
+
   @ApiPropertyOptional({ example: 37.7749, type: Number })
   @IsOptional()
   @Transform(({ value }) => {
@@ -254,6 +261,13 @@ export class UpdateUserDto {
   @Min(0)
   experienceYears?: number;
 
+  @ApiPropertyOptional({ example: 5000, type: Number })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  minimumDailyFees?: number;
+
   @ApiPropertyOptional({ example: 'Photographer' })
   @IsOptional()
   @IsString()
@@ -304,6 +318,12 @@ export class UpdateUserStatusDto {
   @ApiProperty({ enum: UserStatus, example: UserStatus.ACTIVE })
   @IsEnum(UserStatus)
   status: UserStatus;
+}
+
+export class UpdateUserBlockDto {
+  @ApiProperty({ example: true })
+  @IsBoolean()
+  isBlocked: boolean;
 }
 
 export class UserQueryDto {

@@ -139,11 +139,13 @@ describe('PhotographersService', () => {
       expect(model.find).toHaveBeenCalledWith({
         type: 'PHOTOGRAPHER',
         status: 'active',
+        isBlocked: { $ne: true },
         deletedAt: { $exists: false },
       });
       expect(model.countDocuments).toHaveBeenCalledWith({
         type: 'PHOTOGRAPHER',
         status: 'active',
+        isBlocked: { $ne: true },
         deletedAt: { $exists: false },
       });
     });
@@ -197,6 +199,32 @@ describe('PhotographersService', () => {
       const districtCityFilter = model.find.mock.calls[0][0].$and[0].$or[1].city.$in;
       expect(districtCityFilter[0].test('KOLKATA')).toBe(true);
       expect(districtCityFilter[1].test('baruipur ,saha para')).toBe(true);
+    });
+
+    it('filters photographers by minimum daily fees', async () => {
+      const query = {
+        select: jest.fn().mockReturnThis(),
+        sort: jest.fn().mockReturnThis(),
+        skip: jest.fn().mockReturnThis(),
+        limit: jest.fn().mockReturnThis(),
+        exec: jest.fn().mockResolvedValue([mockPhotographer]),
+      };
+      model.find.mockReturnValueOnce(query);
+
+      await service.findAll({
+        page: 1,
+        limit: 10,
+        minDailyFees: 600,
+        maxDailyFees: 1200,
+      });
+
+      expect(model.find).toHaveBeenCalledWith({
+        type: 'PHOTOGRAPHER',
+        status: 'active',
+        isBlocked: { $ne: true },
+        minimumDailyFees: { $gte: 600, $lt: 1200 },
+        deletedAt: { $exists: false },
+      });
     });
   });
 

@@ -271,12 +271,18 @@ export class UsersService {
       throw new NotFoundException(`User with email ${email} not found`);
     }
 
-    const profileImageUrl = file
-      ? await this.fileUploadService.uploadFile(file, 'profiles')
-      : null;
     if (existingUser.type === UserRole.PHOTOGRAPHER && !identityProof) {
       throw new BadRequestException('Identity proof is required for photographer accounts');
     }
+    if (
+      existingUser.type === UserRole.PHOTOGRAPHER &&
+      createUserSecondDto.minimumDailyFees === undefined
+    ) {
+      throw new BadRequestException('Minimum daily fees are required for photographer accounts');
+    }
+    const profileImageUrl = file
+      ? await this.fileUploadService.uploadFile(file, 'profiles')
+      : null;
     const identityProofUrl = existingUser.type === UserRole.PHOTOGRAPHER && identityProof
       ? await this.fileUploadService.uploadConfidentialFile(identityProof)
       : existingUser.identityProofUrl || null;
@@ -290,6 +296,10 @@ export class UsersService {
       state: createUserSecondDto.state ?? null,
       address1: createUserSecondDto.address1 ?? null,
       address2: createUserSecondDto.address2 ?? null,
+      ...(existingUser.type === UserRole.PHOTOGRAPHER &&
+      createUserSecondDto.minimumDailyFees !== undefined
+        ? { minimumDailyFees: createUserSecondDto.minimumDailyFees }
+        : {}),
       location: hasCoordinates
         ? {
           type: 'Point' as const,
@@ -788,6 +798,27 @@ export class UsersService {
     return updatedPhotographer;
   }
 
+  async updateBlockStatus(id: string, isBlocked: boolean): Promise<UserDocument> {
+    if (!Types.ObjectId.isValid(id)) {
+      throw new BadRequestException('Invalid user ID');
+    }
+
+    const updatedUser = await this.userModel
+      .findOneAndUpdate(
+        { _id: id, deletedAt: { $exists: false } },
+        { $set: { isBlocked } },
+        { new: true, runValidators: true },
+      )
+      .select('-password')
+      .exec();
+
+    if (!updatedUser) {
+      throw new NotFoundException(`User with ID ${id} not found`);
+    }
+
+    return updatedUser;
+  }
+
   async remove(id: string): Promise<void> {
     if (!Types.ObjectId.isValid(id)) {
       throw new BadRequestException('Invalid user ID');
@@ -837,6 +868,9 @@ export class UsersService {
       const isPasswordValid = await bcrypt.compare(loginDto.password, user.password);
       if (!isPasswordValid) {
         return { success: false, message: 'invalid credentials' };
+      }
+      if (user.isBlocked) {
+        return { success: false, message: 'This account has been blocked. Please contact support.' };
       }
 
       await this.userModel.findByIdAndUpdate(user._id, { lastLoginAt: new Date() }).exec();

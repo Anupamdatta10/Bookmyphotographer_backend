@@ -42,12 +42,14 @@ import {
   ForgotPasswordDto,
   VerifyPasswordResetOtpDto,
   ResetPasswordDto,
+  UpdateUserBlockDto,
 } from './dto/user.dto';
 import { User, UserRole } from '../schemas/user.schema';
 import { JwtService } from '@nestjs/jwt';
 import { MAX_VIDEO_FILE_SIZE } from '../common/services/file-upload.service';
 import { ProfileVideo } from '../schemas/profile-video.schema';
 import { UserAuthGuard } from './user-auth.guard';
+import { AdminSelfGuard } from '../admins/admin-auth.guard';
 
 @ApiTags('users')
 @Controller('users')
@@ -116,6 +118,7 @@ export class UsersController {
         district: { type: 'string' },
         address1: { type: 'string' },
         address2: { type: 'string' },
+        minimumDailyFees: { type: 'number', minimum: 0 },
         latitude: { type: 'number' },
         longitude: { type: 'number' },
         file: { type: 'string', format: 'binary' },
@@ -244,6 +247,7 @@ export class UsersController {
         password: { type: 'string', example: 'securePassword123' },
         type: { type: 'string', enum: ['ADMIN', 'PHOTOGRAPHER', 'PARTNER', 'SUPERADMIN'], example: 'PARTNER' },
         phone: { type: 'string', example: '+1234567890' },
+        minimumDailyFees: { type: 'number', minimum: 0, example: 5000 },
         city: { type: 'string', example: 'New York' },
         country: { type: 'string', example: 'USA' },
         address1: { type: 'string', example: '123 Main St' },
@@ -382,7 +386,25 @@ export class UsersController {
     return this.usersService.updateOccupiedDates(id, updateDto);
   }
 
+  @Patch(':id/block')
+  @UseGuards(AdminSelfGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Block or unblock a user account' })
+  @ApiParam({ name: 'id', description: 'User ID' })
+  @ApiResponse({ status: 200, description: 'User block status updated successfully', type: User })
+  @ApiResponse({ status: 400, description: 'Invalid user ID or block status' })
+  @ApiResponse({ status: 404, description: 'User not found' })
+  @UsePipes(new ValidationPipe({ transform: true }))
+  async updateUserBlock(
+    @Param('id') id: string,
+    @Body() updateDto: UpdateUserBlockDto,
+  ): Promise<User> {
+    return this.usersService.updateBlockStatus(id, updateDto.isBlocked);
+  }
+
   @Patch(':id/status')
+  @UseGuards(AdminSelfGuard)
+  @ApiBearerAuth()
   @ApiOperation({ summary: 'Update a photographer approval status' })
   @ApiParam({ name: 'id', description: 'Photographer user ID' })
   @ApiResponse({ status: 200, description: 'Photographer status updated successfully', type: User })

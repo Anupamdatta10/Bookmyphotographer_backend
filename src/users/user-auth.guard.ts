@@ -59,10 +59,13 @@ export class UserAuthGuard implements CanActivate {
         _id: payload.sub,
         deletedAt: { $exists: false },
       })
-      .select('_id')
+      .select('_id isBlocked')
       .exec();
     if (!user) {
       throw new ForbiddenException('User account access is required');
+    }
+    if (user.isBlocked) {
+      throw new ForbiddenException('This account has been blocked. Please contact support');
     }
 
     request.userPrincipal = payload;
