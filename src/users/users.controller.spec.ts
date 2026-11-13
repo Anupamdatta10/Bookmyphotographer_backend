@@ -11,6 +11,7 @@ import { ProfileVideo } from '../schemas/profile-video.schema';
 import { UsersController } from './users.controller';
 import { UsersService } from './users.service';
 import { UserAuthGuard } from './user-auth.guard';
+import { AdminSelfGuard } from '../admins/admin-auth.guard';
 
 describe('UsersController profile videos', () => {
   let app: INestApplication;
@@ -36,6 +37,8 @@ describe('UsersController profile videos', () => {
       ],
     })
       .overrideGuard(UserAuthGuard)
+      .useValue({ canActivate: () => true })
+      .overrideGuard(AdminSelfGuard)
       .useValue({ canActivate: () => true })
       .compile();
 
