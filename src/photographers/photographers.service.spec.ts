@@ -74,12 +74,16 @@ describe('PhotographersService', () => {
       const hasDeletedAtMatch = pipeline.some((stage: any) => stage.$match?.deletedAt?.$exists === false);
       const hasAvgRating = pipeline.some((stage: any) => stage.$group?.avgRating);
       const hasAvgPrice = pipeline.some((stage: any) => stage.$group?.avgPrice);
+      const hasMaxDailyFees = pipeline.some((stage: any) => stage.$group?.maxDailyFees);
       
       if (hasDeletedAtMatch && hasAvgRating) {
         return createQueryMock([{ avgRating: 4.5 }]);
       }
       if (hasDeletedAtMatch && hasAvgPrice) {
         return createQueryMock([{ avgPrice: 200 }]);
+      }
+      if (hasMaxDailyFees) {
+        return createQueryMock([{ maxDailyFees: 303900 }]);
       }
       return createQueryMock([]);
     }),
@@ -222,7 +226,7 @@ describe('PhotographersService', () => {
         type: 'PHOTOGRAPHER',
         status: 'active',
         isBlocked: { $ne: true },
-        minimumDailyFees: { $gte: 600, $lt: 1200 },
+        minimumDailyFees: { $gte: 600, $lte: 1200 },
         deletedAt: { $exists: false },
       });
     });
@@ -260,7 +264,20 @@ describe('PhotographersService', () => {
         available: 80,
         averageRating: 4.5,
         averagePrice: 200,
+        maxDailyFees: 303900,
       });
+      expect(model.aggregate).toHaveBeenCalledWith([
+        {
+          $match: {
+            type: 'PHOTOGRAPHER',
+            status: 'active',
+            isBlocked: { $ne: true },
+            minimumDailyFees: { $type: 'number' },
+            deletedAt: { $exists: false },
+          },
+        },
+        { $group: { _id: null, maxDailyFees: { $max: '$minimumDailyFees' } } },
+      ]);
     });
   });
 });

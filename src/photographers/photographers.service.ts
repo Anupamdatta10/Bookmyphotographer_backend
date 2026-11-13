@@ -88,7 +88,7 @@ export class PhotographersService {
         filter.minimumDailyFees.$gte = minDailyFees;
       }
       if (maxDailyFees !== undefined) {
-        filter.minimumDailyFees.$lt = maxDailyFees;
+        filter.minimumDailyFees.$lte = maxDailyFees;
       }
     }
 
@@ -226,8 +226,8 @@ export class PhotographersService {
     return Array.from(specialties).sort();
   }
 
-  async getStats(): Promise<{ total: number; available: number; averageRating: number; averagePrice: number }> {
-    const [total, available, ratingStats, priceStats] = await Promise.all([
+  async getStats(): Promise<{ total: number; available: number; averageRating: number; averagePrice: number; maxDailyFees: number }> {
+    const [total, available, ratingStats, priceStats, dailyFeeStats] = await Promise.all([
       this.userModel.countDocuments({ type: UserRole.PHOTOGRAPHER, deletedAt: { $exists: false } }).exec(),
       this.userModel.countDocuments({ type: UserRole.PHOTOGRAPHER, isAvailable: true, deletedAt: { $exists: false } }).exec(),
       this.userModel.aggregate([
@@ -238,6 +238,18 @@ export class PhotographersService {
         { $match: { type: UserRole.PHOTOGRAPHER, deletedAt: { $exists: false } } },
         { $group: { _id: null, avgPrice: { $avg: '$pricePerHour' } } },
       ]).exec(),
+      this.userModel.aggregate([
+        {
+          $match: {
+            type: UserRole.PHOTOGRAPHER,
+            status: UserStatus.ACTIVE,
+            isBlocked: { $ne: true },
+            minimumDailyFees: { $type: 'number' },
+            deletedAt: { $exists: false },
+          },
+        },
+        { $group: { _id: null, maxDailyFees: { $max: '$minimumDailyFees' } } },
+      ]).exec(),
     ]);
 
     return {
@@ -245,6 +257,7 @@ export class PhotographersService {
       available,
       averageRating: ratingStats[0]?.avgRating || 0,
       averagePrice: priceStats[0]?.avgPrice || 0,
+      maxDailyFees: dailyFeeStats[0]?.maxDailyFees || 0,
     };
   }
 }
