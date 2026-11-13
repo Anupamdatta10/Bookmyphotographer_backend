@@ -9,21 +9,6 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Check out code
-        uses: actions/checkout@v4
-
-      - name: Set up Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: npm
-
-      - name: Install and test
-        run: |
-          npm ci
-          npm test -- --runInBand
-          npm run build
-
       - name: Configure SSH
         env:
           VM_SSH_KEY: ${{ secrets.VM_SSH_KEY }}
@@ -41,4 +26,4 @@ jobs:
         run: |
           ssh -i ~/.ssh/deploy_key -o IdentitiesOnly=yes \
             -o StrictHostKeyChecking=yes "$VM_USER@$VM_HOST" \
-            'cd bookmyphotografer/ && git pull --ff-only origin main && npm ci && npm run build && pm2 restart 0 --update-env'
+            'cd bookmyphotografer/ && git pull --ff-only origin main && npm ci --no-audit --no-fund --prefer-offline && npm test -- --runInBand && npm run build && pm2 restart 0 --update-env'
