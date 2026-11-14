@@ -26,7 +26,9 @@ export class BookingsService {
 
   private async sendStatusEmail(booking: BookingDocument): Promise<void> {
     const user = booking.userId as unknown as { name?: string; email?: string };
-    if (!user?.email) return;
+    const photographer = booking.photographerId as unknown as { name?: string; email?: string };
+    
+    if (!user?.email && !photographer?.email) return;
 
     const sender = this.configService?.get<string>('EMAIL');
     const password = this.configService?.get<string>('EMAIL_PASSWORD');
@@ -37,7 +39,6 @@ export class BookingsService {
 
     const status = String(booking.status);
     const statusLabel = status.charAt(0).toUpperCase() + status.slice(1);
-    const photographer = booking.photographerId as unknown as { name?: string };
     const statusContent: Record<string, { title: string; message: string; color: string }> = {
       confirmed: {
         title: 'Your booking is confirmed',
@@ -76,41 +77,129 @@ export class BookingsService {
         service: 'gmail',
         auth: { user: sender, pass: password },
       });
-      await transporter.sendMail({
-        from: `BookMyPhotographer <${sender}>`,
-        to: user.email,
-        subject: `${content.title} - Booking #${String(booking._id).slice(-8).toUpperCase()}`,
-        html: `
-          <div style="margin:0;background:#f4f7fa;padding:32px 12px;font-family:Arial,sans-serif;color:#2c4357;">
-            <div style="max-width:600px;margin:auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 8px 30px rgba(23,46,67,.08);">
-              <div style="background:#173b4d;padding:28px 32px;color:#fff;">
-                <div style="font-size:20px;font-weight:700;">BookMyPhotographer</div>
-                <div style="margin-top:6px;font-size:13px;color:#d9e8ef;">Booking notification</div>
-              </div>
-              <div style="padding:32px;">
-                <p style="margin:0 0 20px;">Hello ${this.escapeHtml(user.name || 'Customer')},</p>
-                <div style="border-left:4px solid ${content.color};background:${content.color}12;padding:18px 20px;border-radius:4px;">
-                  <div style="font-size:20px;font-weight:700;color:${content.color};">${content.title}</div>
-                  <p style="margin:10px 0 0;line-height:1.6;color:#52697a;">${this.escapeHtml(content.message)}</p>
-                </div>
-                <table style="width:100%;margin-top:24px;border-collapse:collapse;font-size:14px;">
-                  <tr><td style="padding:10px 0;color:#7b8d9c;">Booking ID</td><td style="padding:10px 0;text-align:right;font-weight:700;">#${String(booking._id).slice(-8).toUpperCase()}</td></tr>
-                  <tr><td style="padding:10px 0;color:#7b8d9c;border-top:1px solid #edf1f4;">Current status</td><td style="padding:10px 0;text-align:right;border-top:1px solid #edf1f4;color:${content.color};font-weight:700;">${statusLabel}</td></tr>
-                  <tr><td style="padding:10px 0;color:#7b8d9c;border-top:1px solid #edf1f4;">Photographer</td><td style="padding:10px 0;text-align:right;border-top:1px solid #edf1f4;font-weight:700;">${this.escapeHtml(photographer?.name || 'N/A')}</td></tr>
-                  <tr><td style="padding:10px 0;color:#7b8d9c;border-top:1px solid #edf1f4;">Event date</td><td style="padding:10px 0;text-align:right;border-top:1px solid #edf1f4;">${this.escapeHtml(eventDates)}</td></tr>
-                  <tr><td style="padding:10px 0;color:#7b8d9c;border-top:1px solid #edf1f4;">Location</td><td style="padding:10px 0;text-align:right;border-top:1px solid #edf1f4;">${this.escapeHtml(booking.eventLocation || 'N/A')}</td></tr>
-                </table>
-              </div>
-              <div style="padding:20px 32px;background:#f8fafc;color:#8798a5;font-size:12px;text-align:center;">
-                This is an automated booking update from BookMyPhotographer.
-              </div>
-            </div>
-          </div>
-        `,
-      });
+
+      // Send email to client
+      if (user?.email) {
+        await transporter.sendMail({
+          from: `BookMyPhotographer <${sender}>`,
+          to: user.email,
+          subject: `${content.title} - Booking #${String(booking._id).toUpperCase()}`,
+          html: this.generateBookingEmailHtml({
+            recipientName: user.name || 'Customer',
+            recipientType: 'client',
+            content,
+            statusLabel,
+            booking,
+            photographerName: photographer?.name || 'N/A',
+            eventDates,
+          }),
+        });
+      }
+
+      // Send email to photographer
+      if (photographer?.email) {
+        const photographerContent = this.getPhotographerEmailContent(status, statusLabel);
+        await transporter.sendMail({
+          from: `BookMyPhotographer <${sender}>`,
+          to: photographer.email,
+          subject: `${photographerContent.title} - Booking #${String(booking._id).toUpperCase()}`,
+          html: this.generateBookingEmailHtml({
+            recipientName: photographer.name || 'Photographer',
+            recipientType: 'photographer',
+            content: photographerContent,
+            statusLabel,
+            booking,
+            photographerName: photographer?.name || 'N/A',
+            eventDates,
+            clientName: user?.name || 'N/A',
+          }),
+        });
+      }
     } catch (error) {
       console.error('Booking status email failed:', error);
     }
+  }
+
+  private getPhotographerEmailContent(status: string, statusLabel: string): { title: string; message: string; color: string } {
+    const contentMap: Record<string, { title: string; message: string; color: string }> = {
+      confirmed: {
+        title: 'Booking confirmed',
+        message: 'A booking has been confirmed. The client is expecting you on the scheduled date(s).',
+        color: '#16877e',
+      },
+      rejected: {
+        title: 'Booking rejected',
+        message: 'You have rejected a booking request.',
+        color: '#c7443e',
+      },
+      completed: {
+        title: 'Booking completed',
+        message: 'A booking has been marked as completed. Thank you for your service!',
+        color: '#1565c0',
+      },
+      cancelled: {
+        title: 'Booking cancelled',
+        message: 'A booking has been cancelled.',
+        color: '#7b8794',
+      },
+    };
+    return contentMap[status] || {
+      title: `Booking status updated to ${statusLabel}`,
+      message: 'The status of a booking has changed.',
+      color: '#16877e',
+    };
+  }
+
+  private generateBookingEmailHtml(params: {
+    recipientName: string;
+    recipientType: 'client' | 'photographer';
+    content: { title: string; message: string; color: string };
+    statusLabel: string;
+    booking: BookingDocument;
+    photographerName: string;
+    eventDates: string;
+    clientName?: string;
+  }): string {
+    const { recipientName, recipientType, content, statusLabel, booking, photographerName, eventDates, clientName } = params;
+    const isPhotographer = recipientType === 'photographer';
+    
+    return `
+      <div style="margin:0;background:#f4f7fa;padding:32px 12px;font-family:Arial,sans-serif;color:#2c4357;">
+        <div style="max-width:600px;margin:auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 8px 30px rgba(23,46,67,.08);">
+          <div style="background:#173b4d;padding:28px 32px;color:#fff;">
+            <div style="font-size:20px;font-weight:700;">BookMyPhotographer</div>
+            <div style="margin-top:6px;font-size:13px;color:#d9e8ef;">Booking notification</div>
+          </div>
+          <div style="padding:32px;">
+            <p style="margin:0 0 20px;">Hello ${this.escapeHtml(recipientName)},</p>
+            <div style="border-left:4px solid ${content.color};background:${content.color}12;padding:18px 20px;border-radius:4px;">
+              <div style="font-size:20px;font-weight:700;color:${content.color};">${content.title}</div>
+              <p style="margin:10px 0 0;line-height:1.6;color:#52697a;">${this.escapeHtml(content.message)}</p>
+            </div>
+            <table style="width:100%;margin-top:24px;border-collapse:collapse;font-size:14px;">
+              <tr><td style="padding:10px 0;color:#7b8d9c;">Booking ID</td><td style="padding:10px 0;text-align:right;font-weight:700;">#${String(booking._id).toUpperCase()}</td></tr>
+              <tr><td style="padding:10px 0;color:#7b8d9c;border-top:1px solid #edf1f4;">Current status</td><td style="padding:10px 0;text-align:right;border-top:1px solid #edf1f4;color:${content.color};font-weight:700;">${statusLabel}</td></tr>
+              ${isPhotographer ? `
+                <tr><td style="padding:10px 0;color:#7b8d9c;border-top:1px solid #edf1f4;">Client</td><td style="padding:10px 0;text-align:right;border-top:1px solid #edf1f4;font-weight:700;">${this.escapeHtml(clientName || 'N/A')}</td></tr>
+              ` : `
+                <tr><td style="padding:10px 0;color:#7b8d9c;border-top:1px solid #edf1f4;">Photographer</td><td style="padding:10px 0;text-align:right;border-top:1px solid #edf1f4;font-weight:700;">${this.escapeHtml(photographerName)}</td></tr>
+              `}
+              <tr><td style="padding:10px 0;color:#7b8d9c;border-top:1px solid #edf1f4;">Event date</td><td style="padding:10px 0;text-align:right;border-top:1px solid #edf1f4;">${this.escapeHtml(eventDates)}</td></tr>
+              <tr><td style="padding:10px 0;color:#7b8d9c;border-top:1px solid #edf1f4;">Location</td><td style="padding:10px 0;text-align:right;border-top:1px solid #edf1f4;">${this.escapeHtml(booking.eventLocation || 'N/A')}</td></tr>
+              ${isPhotographer && booking.durationHours ? `
+                <tr><td style="padding:10px 0;color:#7b8d9c;border-top:1px solid #edf1f4;">Duration</td><td style="padding:10px 0;text-align:right;border-top:1px solid #edf1f4;">${booking.durationHours} hours</td></tr>
+              ` : ''}
+              ${isPhotographer && booking.totalPrice ? `
+                <tr><td style="padding:10px 0;color:#7b8d9c;border-top:1px solid #edf1f4;">Amount</td><td style="padding:10px 0;text-align:right;border-top:1px solid #edf1f4;">₹${booking.totalPrice}</td></tr>
+              ` : ''}
+            </table>
+          </div>
+          <div style="padding:20px 32px;background:#f8fafc;color:#8798a5;font-size:12px;text-align:center;">
+            This is an automated booking update from BookMyPhotographer.
+          </div>
+        </div>
+      </div>
+    `;
   }
 
   async create(createBookingDto: CreateBookingDto): Promise<BookingDocument> {
@@ -231,6 +320,10 @@ export class BookingsService {
       ];
       if (Types.ObjectId.isValid(searchText)) {
         searchConditions.push({ _id: new Types.ObjectId(searchText) });
+      } else if (/^[0-9a-fA-F]{8}$/.test(searchText)) {
+        // Support searching by last 8 characters of ObjectId (case-insensitive)
+        const suffixPattern = new RegExp(searchText + '$', 'i');
+        searchConditions.push({ _id: { $regex: suffixPattern } });
       }
       filter.$or = searchConditions;
     }
