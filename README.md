@@ -252,3 +252,4 @@ For issues and questions:
 - Create an issue in the repository
 - Check the API documentation at `/api/docs`
 - Review the logs for error details #Bookmyphotographer_backend
+- ssh -i "ssh-key-2026-10-31.key" ubuntu@129.225.69.157
