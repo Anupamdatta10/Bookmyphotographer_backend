@@ -65,10 +65,6 @@ export class UsersController {
   @ApiResponse({ status: 400, description: 'Bad request - validation error' })
   @UsePipes(new ValidationPipe({ transform: true }))
   async createFirst(@Body() createUserFirstDto: CreateUserFirstDto) {
-    console.log('First endpoint data:', {
-      name: createUserFirstDto.name,
-      email: createUserFirstDto.email,
-    });
     return this.usersService.sendRegistrationOtp(createUserFirstDto);
   }
 

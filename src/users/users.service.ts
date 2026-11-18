@@ -13,6 +13,7 @@ import { FileUploadService } from '../common/services/file-upload.service';
 import { ProfileVideo, ProfileVideoDocument } from '../schemas/profile-video.schema';
 import { basename } from 'path';
 import { PasswordResetOtp, PasswordResetOtpDocument } from '../schemas/password-reset-otp.schema';
+import { sendEmailAndAppend } from '../helper/email.helper';
 
 @Injectable()
 export class UsersService {
@@ -138,27 +139,10 @@ export class UsersService {
     ).exec();
 
     try {
-      const user = this.configService.get<string>('EMAIL');
-      const pass = this.configService.get<string>('EMAIL_PASSWORD');
-      if (!user || !pass) {
-        throw new Error('Email settings are missing');
-      }
-
-      const transporter = nodemailer.createTransport({
-        service: 'gmail',
-        auth: { user, pass },
-      });
-      const result = await transporter.sendMail({
-        from: {
-          name: 'BookMyFotographer',
-          address: user,
-        },
-
-        to: email,
-
-        subject: 'Your BookMyFotographer verification code',
-
-        text: `
+      await sendEmailAndAppend(
+        email,
+        'Your BookMyFotographer verification code',
+        `
             Hello,
 
             Your verification code is ${otp}.
@@ -170,8 +154,7 @@ export class UsersService {
             Regards,
             BookMyFotographer Team
               `,
-
-        html: `
+        `
             <div style="
               max-width: 500px;
               margin: auto;
@@ -203,12 +186,10 @@ export class UsersService {
               <p>Regards,<br>BookMyFotographer Team</p>
             </div>
           `,
-      });
+      );
 
-      console.log('Email sent:', result.messageId);
       console.info('Registration OTP email sent:', {
         recipient: email,
-        messageId: result.messageId,
       });
     } catch (error) {
       const mailError = error as Error & {
