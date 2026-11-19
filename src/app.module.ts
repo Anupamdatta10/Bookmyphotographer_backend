@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
 import { JwtModule } from '@nestjs/jwt';
+import { EventEmitterModule } from '@nestjs/event-emitter';
 import { BookingsModule } from './bookings/bookings.module';
 import { UsersModule } from './users/users.module';
 import { ReviewsModule } from './reviews/reviews.module';
@@ -20,6 +21,7 @@ import { ContactModule } from './contact/contact.module';
       isGlobal: true,
       envFilePath: ['.env.local', '.env'],
     }),
+    EventEmitterModule.forRoot(),
     JwtModule.registerAsync({
       global: true,
       imports: [ConfigModule],

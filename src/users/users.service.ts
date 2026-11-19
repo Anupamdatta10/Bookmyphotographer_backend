@@ -4,7 +4,6 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types, FilterQuery } from 'mongoose';
 import * as bcrypt from 'bcrypt';
 import { randomInt } from 'crypto';
-import * as nodemailer from 'nodemailer';
 import { User, UserDocument, UserRole, UserStatus } from '../schemas/user.schema';
 import { Admin, AdminDocument } from '../schemas/admin.schema';
 import { RegistrationOtp, RegistrationOtpDocument } from '../schemas/registration-otp.schema';
@@ -98,23 +97,26 @@ export class UsersService {
   }
 
   private async sendPasswordResetEmail(email: string, otp: string): Promise<void> {
-    const user = this.configService.get<string>('EMAIL');
-    const pass = this.configService.get<string>('EMAIL_PASSWORD');
-    if (!user || !pass) throw new Error('Email settings are missing');
-    const transporter = nodemailer.createTransport({ service: 'gmail', auth: { user, pass } });
-    const result = await transporter.sendMail({
-      from: { name: 'BookMyFotographer', address: user },
-      to: email,
-      subject: 'Your BookMyFotographer password reset code',
-      text: `Your password reset code is ${otp}. It expires in 10 minutes.`,
-      html: `<div style="max-width:500px;margin:auto;font-family:Arial,sans-serif;color:#333"><h2>BookMyFotographer</h2><p>Your password reset code is:</p><div style="padding:16px;text-align:center;background:#f4f4f4;font-size:30px;font-weight:bold;letter-spacing:8px">${otp}</div><p>This code expires in <strong>10 minutes</strong>.</p><p>If you did not request this, you can ignore this email.</p></div>`,
-    });
-    console.info('Password reset OTP email accepted:', {
+    await sendEmailAndAppend(
+      email,
+      'Your BookMyFotographer password reset code',
+      `
+            Your password reset code is ${otp}. It expires in 10 minutes.
+
+            If you did not request this, you can ignore this email.
+              `,
+      `
+            <div style="max-width:500px;margin:auto;font-family:Arial,sans-serif;color:#333">
+              <h2>BookMyFotographer</h2>
+              <p>Your password reset code is:</p>
+              <div style="padding:16px;text-align:center;background:#f4f4f4;font-size:30px;font-weight:bold;letter-spacing:8px">${otp}</div>
+              <p>This code expires in <strong>10 minutes</strong>.</p>
+              <p>If you did not request this, you can ignore this email.</p>
+            </div>
+          `,
+    );
+    console.info('Password reset OTP email sent:', {
       recipient: email,
-      messageId: result.messageId,
-      accepted: result.accepted,
-      rejected: result.rejected,
-      response: result.response,
     });
   }
 

@@ -1,11 +1,14 @@
 import { Injectable, NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { EventEmitter2, OnEvent } from '@nestjs/event-emitter';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types, FilterQuery } from 'mongoose';
-import * as nodemailer from 'nodemailer';
 import { Booking, BookingDocument, BookingStatus } from '../schemas/booking.schema';
 import { User, UserDocument } from '../schemas/user.schema';
 import { CreateBookingDto, UpdateBookingDto, BookingQueryDto } from './dto/booking.dto';
+import { sendEmailAndAppend } from '../helper/email.helper';
+
+const BOOKING_STATUS_UPDATED_EVENT = 'booking.status.updated';
 
 @Injectable()
 export class BookingsService {
@@ -13,6 +16,7 @@ export class BookingsService {
     @InjectModel(Booking.name) private bookingModel: Model<BookingDocument>,
     @InjectModel(User.name) private userModel: Model<UserDocument>,
     private readonly configService: ConfigService,
+    private readonly eventEmitter: EventEmitter2,
   ) {}
 
   private escapeHtml(value: unknown): string {
@@ -24,7 +28,12 @@ export class BookingsService {
       .replace(/'/g, '&#039;');
   }
 
-  private async sendStatusEmail(booking: BookingDocument): Promise<void> {
+  private sendStatusEmail(booking: BookingDocument): void {
+    this.eventEmitter.emit(BOOKING_STATUS_UPDATED_EVENT, booking);
+  }
+
+  @OnEvent(BOOKING_STATUS_UPDATED_EVENT)
+  private async handleStatusEmail(booking: BookingDocument): Promise<void> {
     const user = booking.userId as unknown as { name?: string; email?: string };
     const photographer = booking.photographerId as unknown as { name?: string; email?: string };
     
@@ -73,47 +82,44 @@ export class BookingsService {
       : 'N/A';
 
     try {
-      const transporter = nodemailer.createTransport({
-        service: 'gmail',
-        auth: { user: sender, pass: password },
-      });
-
       // Send email to client
       if (user?.email) {
-        await transporter.sendMail({
-          from: `BookMyPhotographer <${sender}>`,
-          to: user.email,
-          subject: `${content.title} - Booking #${String(booking._id).toUpperCase()}`,
-          html: this.generateBookingEmailHtml({
-            recipientName: user.name || 'Customer',
-            recipientType: 'client',
-            content,
-            statusLabel,
-            booking,
-            photographerName: photographer?.name || 'N/A',
-            eventDates,
-          }),
+        const html = this.generateBookingEmailHtml({
+          recipientName: user.name || 'Customer',
+          recipientType: 'client',
+          content,
+          statusLabel,
+          booking,
+          photographerName: photographer?.name || 'N/A',
+          eventDates,
         });
+        await sendEmailAndAppend(
+          user.email,
+          `${content.title} - Booking #${String(booking._id).toUpperCase()}`,
+          content.message,
+          html,
+        );
       }
 
       // Send email to photographer
       if (photographer?.email) {
         const photographerContent = this.getPhotographerEmailContent(status, statusLabel);
-        await transporter.sendMail({
-          from: `BookMyPhotographer <${sender}>`,
-          to: photographer.email,
-          subject: `${photographerContent.title} - Booking #${String(booking._id).toUpperCase()}`,
-          html: this.generateBookingEmailHtml({
-            recipientName: photographer.name || 'Photographer',
-            recipientType: 'photographer',
-            content: photographerContent,
-            statusLabel,
-            booking,
-            photographerName: photographer?.name || 'N/A',
-            eventDates,
-            clientName: user?.name || 'N/A',
-          }),
+        const html = this.generateBookingEmailHtml({
+          recipientName: photographer.name || 'Photographer',
+          recipientType: 'photographer',
+          content: photographerContent,
+          statusLabel,
+          booking,
+          photographerName: photographer?.name || 'N/A',
+          eventDates,
+          clientName: user?.name || 'N/A',
         });
+        await sendEmailAndAppend(
+          photographer.email,
+          `${photographerContent.title} - Booking #${String(booking._id).toUpperCase()}`,
+          photographerContent.message,
+          html,
+        );
       }
     } catch (error) {
       console.error('Booking status email failed:', error);
@@ -524,7 +530,7 @@ export class BookingsService {
     if (!updatedBooking) {
       throw new NotFoundException(`Booking with ID ${id} not found`);
     }
-    await this.sendStatusEmail(updatedBooking);
+    this.sendStatusEmail(updatedBooking);
     return updatedBooking;
   }
 

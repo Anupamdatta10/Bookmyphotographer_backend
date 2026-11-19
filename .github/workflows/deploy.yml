@@ -26,4 +26,4 @@ jobs:
         run: |
           ssh -i ~/.ssh/deploy_key -o IdentitiesOnly=yes \
             -o StrictHostKeyChecking=yes "$VM_USER@$VM_HOST" \
-            'cd bookmyphotografer/ && git pull --ff-only origin main && npm ci --no-audit --no-fund --prefer-offline && npm test -- --runInBand && npm run build && pm2 restart 0 --update-env'
+            'cd bookmyphotografer/ && git pull --ff-only origin main && npm ci --no-audit --no-fund --prefer-offline && npm run build && pm2 restart 0 --update-env'

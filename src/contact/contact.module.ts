@@ -6,6 +6,7 @@ import {
 } from '../schemas/contact-submission.schema';
 import { ContactController } from './contact.controller';
 import { ContactService } from './contact.service';
+import { ContactEmailListener } from './contact-email.listener';
 
 @Module({
   imports: [
@@ -14,6 +15,6 @@ import { ContactService } from './contact.service';
     ]),
   ],
   controllers: [ContactController],
-  providers: [ContactService],
+  providers: [ContactService, ContactEmailListener],
 })
 export class ContactModule {}
