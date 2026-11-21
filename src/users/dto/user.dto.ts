@@ -244,6 +244,16 @@ export class UpdateUserDto {
   @IsString({ each: true })
   languages?: string[];
 
+  @ApiPropertyOptional({
+    example: ['https://www.youtube.com/watch?v=WEyBSr7YZ2E'],
+    type: [String],
+  })
+  @IsOptional()
+  @IsArray()
+  @ArrayUnique()
+  @IsUrl({}, { each: true })
+  profileVideoLinks?: string[];
+
   @ApiPropertyOptional({ example: 'Photographer based in California' })
   @IsOptional()
   @IsString()

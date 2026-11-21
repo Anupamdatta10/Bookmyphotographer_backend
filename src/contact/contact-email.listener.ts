@@ -34,6 +34,7 @@ export class ContactEmailListener {
     const text = [
       `Name: ${event.name}`,
       `Email: ${event.email}`,
+      `Phone: ${event.phone}`,
       `Subject: ${event.subject}`,
       '',
       'Message:',
@@ -43,6 +44,7 @@ export class ContactEmailListener {
       <h2>New contact form submission</h2>
       <p><strong>Name:</strong> ${this.escapeHtml(event.name)}</p>
       <p><strong>Email:</strong> ${this.escapeHtml(event.email)}</p>
+      <p><strong>Phone:</strong> ${this.escapeHtml(event.phone)}</p>
       <p><strong>Subject:</strong> ${this.escapeHtml(event.subject)}</p>
       <p><strong>Message:</strong></p>
       <p>${this.escapeHtml(event.message).replace(/\n/g, '<br>')}</p>

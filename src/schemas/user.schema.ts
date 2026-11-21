@@ -64,6 +64,9 @@ export class User {
   profileVideoUrls: string[];
 
   @Prop({ type: [String], default: [] })
+  profileVideoLinks: string[];
+
+  @Prop({ type: [String], default: [] })
   specialties: string[];
 
   @Prop({ type: [String], default: [] })

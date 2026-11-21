@@ -18,6 +18,12 @@ export class CreateContactSubmissionDto {
   @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   @IsString()
   @IsNotEmpty()
+  @MaxLength(40)
+  phone: string;
+
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  @IsString()
+  @IsNotEmpty()
   @MaxLength(150)
   subject: string;
 
