@@ -30,6 +30,7 @@ export class ContactService {
       submissionId: savedSubmission.id,
       name: savedSubmission.name,
       email: savedSubmission.email,
+      phone: savedSubmission.phone,
       subject: savedSubmission.subject,
       message: savedSubmission.message,
     };
