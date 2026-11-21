@@ -18,8 +18,7 @@ export class CreateContactSubmissionDto {
   @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   @IsString()
   @IsNotEmpty()
-  @MaxLength(20)
-  @Matches(/^[\d\s\-\+\(\)]+$/, { message: 'Phone number can only contain digits, spaces, hyphens, plus sign, and parentheses' })
+  @MaxLength(40)
   phone: string;
 
   @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))

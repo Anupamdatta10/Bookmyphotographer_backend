@@ -236,6 +236,29 @@ describe('UsersService registration flow', () => {
     );
   });
 
+  it('saves profile video links and returns them in the updated user', async () => {
+    const userId = '65a000000000000000000008';
+    const profileVideoLinks = [
+      'https://www.youtube.com/watch?v=WEyBSr7YZ2E',
+    ];
+    const updatedUser = { _id: userId, profileVideoLinks };
+    const updateQuery = {
+      select: jest.fn().mockReturnThis(),
+      exec: jest.fn().mockResolvedValue(updatedUser),
+    };
+    userModel.findOneAndUpdate.mockReturnValue(updateQuery);
+
+    await expect(
+      service.update(userId, { profileVideoLinks }),
+    ).resolves.toBe(updatedUser);
+
+    expect(userModel.findOneAndUpdate).toHaveBeenCalledWith(
+      { _id: userId, deletedAt: { $exists: false } },
+      { $set: { profileVideoLinks } },
+      { new: true, runValidators: true },
+    );
+  });
+
   it('calculates and stores age when a date of birth is updated', async () => {
     const userId = '65a000000000000000000003';
     const today = new Date();

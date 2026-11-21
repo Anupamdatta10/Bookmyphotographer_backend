@@ -243,6 +243,11 @@ export class UsersController {
         password: { type: 'string', example: 'securePassword123' },
         type: { type: 'string', enum: ['ADMIN', 'PHOTOGRAPHER', 'PARTNER', 'SUPERADMIN'], example: 'PARTNER' },
         phone: { type: 'string', example: '+1234567890' },
+        profileVideoLinks: {
+          type: 'array',
+          items: { type: 'string', format: 'url' },
+          example: ['https://www.youtube.com/watch?v=WEyBSr7YZ2E'],
+        },
         minimumDailyFees: { type: 'number', minimum: 0, example: 5000 },
         city: { type: 'string', example: 'New York' },
         country: { type: 'string', example: 'USA' },

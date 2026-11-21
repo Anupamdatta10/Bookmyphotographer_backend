@@ -11,7 +11,7 @@ export class ContactSubmission {
   @Prop({ required: true, trim: true, lowercase: true, maxlength: 254 })
   email: string;
 
-  @Prop({ required: true, trim: true, maxlength: 20 })
+  @Prop({ required: true, trim: true, maxlength: 40 })
   phone: string;
 
   @Prop({ required: true, trim: true, maxlength: 150 })
