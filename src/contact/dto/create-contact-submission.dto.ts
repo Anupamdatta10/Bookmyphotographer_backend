@@ -1,5 +1,5 @@
 import { Transform } from 'class-transformer';
-import { IsEmail, IsNotEmpty, IsString, MaxLength } from 'class-validator';
+import { IsEmail, IsNotEmpty, IsString, MaxLength, Matches } from 'class-validator';
 
 export class CreateContactSubmissionDto {
   @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
