@@ -39,7 +39,7 @@ db.createCollection('bookings', {
         eventDate: { bsonType: 'array', items: { bsonType: 'date' } },
         eventLocation: { bsonType: 'string', minLength: 5, maxLength: 200 },
         status: { enum: ['pending', 'confirmed', 'in_progress', 'completed', 'cancelled'] },
-        durationHours: { bsonType: 'int', minimum: 1 },
+        durationHours: { bsonType: 'string' },
         totalPrice: { bsonType: 'double', minimum: 0 },
         notes: { bsonType: 'string', maxLength: 1000 },
         specialRequirements: { bsonType: 'string', maxLength: 1000 },

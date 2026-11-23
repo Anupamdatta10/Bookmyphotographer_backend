@@ -29,8 +29,8 @@ export class Booking {
   @Prop({ type: String, enum: BookingStatus, default: BookingStatus.PENDING })
   status: BookingStatus;
 
-  @Prop({ type: Number, default: 0, min: 0 })
-  durationHours: number;
+  @Prop({ type: String, default: '0' })
+  durationHours: string;
 
   @Prop({ type: Number, default: 0, min: 0 })
   totalPrice: number;

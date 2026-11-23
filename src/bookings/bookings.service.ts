@@ -28,6 +28,120 @@ export class BookingsService {
       .replace(/'/g, '&#039;');
   }
 
+  private async sendBookingConfirmationEmail(booking: BookingDocument): Promise<void> {
+    const sender = this.configService?.get<string>('EMAIL');
+    const password = this.configService?.get<string>('EMAIL_PASSWORD');
+    if (!sender || !password) {
+      console.error('Booking confirmation email not sent: email settings are missing');
+      return;
+    }
+
+    const populatedBooking = await this.bookingModel
+      .findById(booking._id)
+      .populate('photographerId', 'name email phone')
+      .populate('userId', 'name email phone')
+      .lean()
+      .exec();
+
+    const photographer = populatedBooking?.photographerId as unknown as { name?: string; email?: string };
+    const user = populatedBooking?.userId as unknown as { name?: string; email?: string };
+
+    const eventDates = Array.isArray(booking.eventDate)
+      ? booking.eventDate.map((date) => new Date(date).toLocaleDateString('en-IN', {
+          day: '2-digit', month: 'short', year: 'numeric',
+        })).join(', ')
+      : 'N/A';
+
+    const bookingId = String(booking._id).toUpperCase();
+    const duration = booking.durationHours ? `${booking.durationHours} hour(s)` : 'N/A';
+
+    const recipients: Array<{ to: string; name: string; type: 'client' | 'photographer' | 'admin' }> = [];
+    if (user?.email) recipients.push({ to: user.email, name: user.name || 'Customer', type: 'client' });
+    if (photographer?.email) recipients.push({ to: photographer.email, name: photographer.name || 'Photographer', type: 'photographer' });
+    recipients.push({ to: sender, name: 'Admin', type: 'admin' });
+
+    const subject = `New Booking Created - Booking #${bookingId}`;
+
+    for (const recipient of recipients) {
+      console.log(`Sending booking confirmation email to ${recipient.to} (${recipient.name}) for booking #${bookingId}`);
+      const html = this.generateBookingConfirmationHtml({
+        recipientName: recipient.name,
+        recipientType: recipient.type,
+        booking,
+        photographerName: photographer?.name || 'N/A',
+        clientName: user?.name || 'N/A',
+        eventDates,
+        duration,
+        bookingId,
+      });
+      try {
+        await sendEmailAndAppend(
+          recipient.to,
+          subject,
+          `A new booking #${bookingId} has been created.`,
+          html,
+        );
+      } catch (error) {
+        console.error(`Booking confirmation email failed for ${recipient.to}:`, error);
+      }
+    }
+  }
+
+  private generateBookingConfirmationHtml(params: {
+    recipientName: string;
+    recipientType: 'client' | 'photographer' | 'admin';
+    booking: BookingDocument;
+    photographerName: string;
+    clientName: string;
+    eventDates: string;
+    duration: string;
+    bookingId: string;
+  }): string {
+    const { recipientName, recipientType, booking, photographerName, clientName, eventDates, duration, bookingId } = params;
+    const isPhotographer = recipientType === 'photographer';
+    const isAdmin = recipientType === 'admin';
+
+    return `
+      <div style="margin:0;background:#f4f7fa;padding:32px 12px;font-family:Arial,sans-serif;color:#2c4357;">
+        <div style="max-width:600px;margin:auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 8px 30px rgba(23,46,67,.08);">
+          <div style="background:#173b4d;padding:28px 32px;color:#fff;">
+            <div style="font-size:20px;font-weight:700;">BookMyPhotographer</div>
+            <div style="margin-top:6px;font-size:13px;color:#d9e8ef;">Booking confirmation</div>
+          </div>
+          <div style="padding:32px;">
+            <p style="margin:0 0 20px;">Hello ${this.escapeHtml(recipientName)},</p>
+            <div style="border-left:4px solid #16877e;background:#16877e12;padding:18px 20px;border-radius:4px;">
+              <div style="font-size:20px;font-weight:700;color:#16877e;">New Booking Created</div>
+              <p style="margin:10px 0 0;line-height:1.6;color:#52697a;">A new booking has been created and is awaiting confirmation.</p>
+            </div>
+            <table style="width:100%;margin-top:24px;border-collapse:collapse;font-size:14px;">
+              <tr><td style="padding:10px 0;color:#7b8d9c;">Booking ID</td><td style="padding:10px 0;text-align:right;font-weight:700;">#${bookingId}</td></tr>
+              <tr><td style="padding:10px 0;color:#7b8d9c;border-top:1px solid #edf1f4;">Status</td><td style="padding:10px 0;text-align:right;border-top:1px solid #edf1f4;font-weight:700;">Pending</td></tr>
+              ${isPhotographer || isAdmin ? `
+                <tr><td style="padding:10px 0;color:#7b8d9c;border-top:1px solid #edf1f4;">Client</td><td style="padding:10px 0;text-align:right;border-top:1px solid #edf1f4;font-weight:700;">${this.escapeHtml(clientName)}</td></tr>
+              ` : ''}
+              ${!isPhotographer ? `
+                <tr><td style="padding:10px 0;color:#7b8d9c;border-top:1px solid #edf1f4;">Photographer</td><td style="padding:10px 0;text-align:right;border-top:1px solid #edf1f4;font-weight:700;">${this.escapeHtml(photographerName)}</td></tr>
+              ` : ''}
+              <tr><td style="padding:10px 0;color:#7b8d9c;border-top:1px solid #edf1f4;">Event date</td><td style="padding:10px 0;text-align:right;border-top:1px solid #edf1f4;">${this.escapeHtml(eventDates)}</td></tr>
+              <tr><td style="padding:10px 0;color:#7b8d9c;border-top:1px solid #edf1f4;">Location</td><td style="padding:10px 0;text-align:right;border-top:1px solid #edf1f4;">${this.escapeHtml(booking.eventLocation || 'N/A')}</td></tr>
+              <tr><td style="padding:10px 0;color:#7b8d9c;border-top:1px solid #edf1f4;">Duration</td><td style="padding:10px 0;text-align:right;border-top:1px solid #edf1f4;">${duration}</td></tr>
+              ${booking.notes ? `
+                <tr><td style="padding:10px 0;color:#7b8d9c;border-top:1px solid #edf1f4;">Notes</td><td style="padding:10px 0;text-align:right;border-top:1px solid #edf1f4;">${this.escapeHtml(booking.notes)}</td></tr>
+              ` : ''}
+              ${booking.specialRequirements ? `
+                <tr><td style="padding:10px 0;color:#7b8d9c;border-top:1px solid #edf1f4;">Special requirements</td><td style="padding:10px 0;text-align:right;border-top:1px solid #edf1f4;">${this.escapeHtml(booking.specialRequirements)}</td></tr>
+              ` : ''}
+            </table>
+          </div>
+          <div style="padding:20px 32px;background:#f8fafc;color:#8798a5;font-size:12px;text-align:center;">
+            This is an automated booking notification from BookMyFhotographer.
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
   private sendStatusEmail(booking: BookingDocument): void {
     this.eventEmitter.emit(BOOKING_STATUS_UPDATED_EVENT, booking);
   }
@@ -217,8 +331,7 @@ export class BookingsService {
       throw new BadRequestException('Invalid user ID');
     }
 
-      // Check for conflicting bookings (same photographer, same date/time) for each event date
-      const durationHours = createBookingDto.durationHours || 1;
+      // Check for conflicting bookings (same photographer, same date) for each event date
     
       const photographer = await this.userModel.findOne({
         _id: createBookingDto.photographerId,
@@ -227,7 +340,6 @@ export class BookingsService {
 
       for (const eventDate of createBookingDto.eventDate) {
         const date = new Date(eventDate);
-        const endDate = new Date(date.getTime() + durationHours * 60 * 60 * 1000);
         const dateKey = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate())).getTime();
         const isOccupied = (photographer?.occupiedDates || []).some((occupiedDate) => {
           const occupied = new Date(occupiedDate);
@@ -241,22 +353,7 @@ export class BookingsService {
           photographerId: createBookingDto.photographerId,
           status: { $in: [BookingStatus.PENDING, BookingStatus.CONFIRMED, BookingStatus.IN_PROGRESS] },
           deletedAt: { $exists: false },
-          $or: [
-            { eventDate: { $elemMatch: { $lt: endDate, $gte: date } } },
-            {
-              $expr: {
-                $lt: [
-                  {
-                    $add: [
-                      { $arrayElemAt: ['$eventDate', 0] },
-                      { $multiply: ['$durationHours', 3600000] },
-                    ],
-                  },
-                  endDate,
-                ],
-              },
-            },
-          ],
+          eventDate: { $in: createBookingDto.eventDate },
         }).exec();
 
         if (conflictingBooking) {
@@ -272,7 +369,12 @@ export class BookingsService {
         userId: new Types.ObjectId(createBookingDto.userId),
       });
 
-      return createdBooking.save();
+      const savedBooking = await createdBooking.save();
+      this.sendBookingConfirmationEmail(savedBooking).catch((error) => {
+        console.error('Booking confirmation email failed:', error);
+      });
+
+      return savedBooking;
     }
 
   async findAll(queryDto: BookingQueryDto): Promise<{ data: BookingDocument[]; total: number; page: number; limit: number }> {
@@ -423,33 +525,15 @@ export class BookingsService {
 
       const photographerId = updateBookingDto.photographerId || booking.photographerId.toString();
           const eventDates = updateBookingDto.eventDate ? updateBookingDto.eventDate.map(d => new Date(d)) : booking.eventDate;
-      const durationHours = updateBookingDto.durationHours || booking.durationHours;
 
           // Check each event date for conflicts
           for (const eventDate of eventDates) {
-            const endDate = new Date(eventDate.getTime() + durationHours * 60 * 60 * 1000);
-
             const conflictingBooking = await this.bookingModel.findOne({
               _id: { $ne: id },
               photographerId: new Types.ObjectId(photographerId),
               status: { $in: [BookingStatus.PENDING, BookingStatus.CONFIRMED, BookingStatus.IN_PROGRESS] },
               deletedAt: { $exists: false },
-              $or: [
-                { eventDate: { $elemMatch: { $lt: endDate, $gte: eventDate } } },
-                {
-                  $expr: {
-                    $lt: [
-                      {
-                        $add: [
-                          { $arrayElemAt: ['$eventDate', 0] },
-                          { $multiply: ['$durationHours', 3600000] },
-                        ],
-                      },
-                      endDate,
-                    ],
-                  },
-                },
-              ],
+              eventDate: { $in: updateBookingDto.eventDate || booking.eventDate },
             }).exec();
 
             if (conflictingBooking) {

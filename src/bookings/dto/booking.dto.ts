@@ -1,4 +1,4 @@
-import { IsString, IsDate, IsEnum, IsOptional, IsNumber, Min, Max, IsMongoId } from 'class-validator';
+import { IsString, IsDate, IsEnum, IsOptional, IsNumber, Min, Max, IsMongoId, MinLength } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import { BookingStatus } from '../../schemas/booking.schema';
@@ -21,12 +21,11 @@ export class CreateBookingDto {
   @IsString()
   eventLocation: string;
 
-  @ApiPropertyOptional({ example: 4 })
+  @ApiPropertyOptional({ example: '4' })
   @IsOptional()
-  @Type(() => Number)
-  @IsNumber()
-  @Min(1)
-  durationHours?: number;
+  @IsString()
+  @MinLength(1)
+  durationHours?: string;
 
   @ApiPropertyOptional({ example: 'Outdoor wedding ceremony' })
   @IsOptional()
@@ -56,12 +55,11 @@ export class UpdateBookingDto {
   @IsString()
   eventLocation?: string;
 
-  @ApiPropertyOptional({ example: 4 })
+  @ApiPropertyOptional({ example: '4' })
   @IsOptional()
-  @Type(() => Number)
-  @IsNumber()
-  @Min(1)
-  durationHours?: number;
+  @IsString()
+  @MinLength(1)
+  durationHours?: string;
 
   @ApiPropertyOptional({ example: 600 })
   @IsOptional()
