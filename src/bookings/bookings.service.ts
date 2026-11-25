@@ -105,8 +105,8 @@ export class BookingsService {
       <div style="margin:0;background:#f4f7fa;padding:32px 12px;font-family:Arial,sans-serif;color:#2c4357;">
         <div style="max-width:600px;margin:auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 8px 30px rgba(23,46,67,.08);">
           <div style="background:#173b4d;padding:28px 32px;color:#fff;">
-            <div style="font-size:20px;font-weight:700;">BookMyPhotographer</div>
-            <div style="margin-top:6px;font-size:13px;color:#d9e8ef;">Booking confirmation</div>
+            <div style="font-size:20px;font-weight:700;">BookMyFotographer</div>
+            <div style="margin-top:6px;font-size:13px;color:#d9e8ef;">Booking acknowledgement</div>
           </div>
           <div style="padding:32px;">
             <p style="margin:0 0 20px;">Hello ${this.escapeHtml(recipientName)},</p>
@@ -135,7 +135,7 @@ export class BookingsService {
             </table>
           </div>
           <div style="padding:20px 32px;background:#f8fafc;color:#8798a5;font-size:12px;text-align:center;">
-            This is an automated booking notification from BookMyFhotographer.
+            This is an automated booking notification from BookMyFotographer.
           </div>
         </div>
       </div>
@@ -287,7 +287,7 @@ export class BookingsService {
       <div style="margin:0;background:#f4f7fa;padding:32px 12px;font-family:Arial,sans-serif;color:#2c4357;">
         <div style="max-width:600px;margin:auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 8px 30px rgba(23,46,67,.08);">
           <div style="background:#173b4d;padding:28px 32px;color:#fff;">
-            <div style="font-size:20px;font-weight:700;">BookMyPhotographer</div>
+            <div style="font-size:20px;font-weight:700;">BookMyFotographer</div>
             <div style="margin-top:6px;font-size:13px;color:#d9e8ef;">Booking notification</div>
           </div>
           <div style="padding:32px;">
@@ -315,7 +315,7 @@ export class BookingsService {
             </table>
           </div>
           <div style="padding:20px 32px;background:#f8fafc;color:#8798a5;font-size:12px;text-align:center;">
-            This is an automated booking update from BookMyPhotographer.
+            This is an automated booking update from BookMyFotographer.
           </div>
         </div>
       </div>
