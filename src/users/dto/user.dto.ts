@@ -283,6 +283,14 @@ export class UpdateUserDto {
   @IsString()
   proffession?: string;
 
+  @ApiPropertyOptional({ example: 4.5, type: Number, minimum: 0, maximum: 5 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  @Max(5)
+  rating?: number;
+
   @ApiPropertyOptional({ example: 90210, type: Number })
   @IsOptional()
   @Type(() => Number)
@@ -328,6 +336,15 @@ export class UpdateUserStatusDto {
   @ApiProperty({ enum: UserStatus, example: UserStatus.ACTIVE })
   @IsEnum(UserStatus)
   status: UserStatus;
+}
+
+export class UpdateUserRatingDto {
+  @ApiProperty({ example: 4.5, minimum: 0, maximum: 5 })
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  @Max(5)
+  rating: number;
 }
 
 export class UpdateUserBlockDto {

@@ -43,6 +43,7 @@ import {
   VerifyPasswordResetOtpDto,
   ResetPasswordDto,
   UpdateUserBlockDto,
+  UpdateUserRatingDto,
 } from './dto/user.dto';
 import { User, UserRole } from '../schemas/user.schema';
 import { JwtService } from '@nestjs/jwt';
@@ -401,6 +402,20 @@ export class UsersController {
     @Body() updateDto: UpdateUserBlockDto,
   ): Promise<User> {
     return this.usersService.updateBlockStatus(id, updateDto.isBlocked);
+  }
+
+  @Patch(':id/rating')
+  @UseGuards(AdminSelfGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Update a photographer rating' })
+  @ApiParam({ name: 'id', description: 'Photographer user ID' })
+  @ApiResponse({ status: 200, description: 'Photographer rating updated successfully', type: User })
+  @UsePipes(new ValidationPipe({ transform: true }))
+  async updatePhotographerRating(
+    @Param('id') id: string,
+    @Body() updateDto: UpdateUserRatingDto,
+  ): Promise<User> {
+    return this.usersService.update(id, { rating: updateDto.rating });
   }
 
   @Patch(':id/status')
